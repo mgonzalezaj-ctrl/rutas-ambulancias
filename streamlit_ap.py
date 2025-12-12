@@ -104,8 +104,8 @@ def calcular(df, flota_config):
     
     # Factor de tolerancia para "Tiempo Máximo de Viaje"
     # Un viaje no puede durar más que: (Tiempo Directo * 1.5) + 30 min
-    FACTOR_MAX_TIEMPO = 1.5 
-    BUFFER_MAX_TIEMPO = 30 
+    FACTOR_MAX_TIEMPO = 3.0 
+    BUFFER_MAX_TIEMPO = 90 
 
     # 1. Procesar Pacientes
     pacientes_puntos = []
@@ -409,4 +409,5 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
         else:
             st.success("Archivo cargado correctamente.")
             st.dataframe(df.head())
+
             calcular(df.to_dict('records'), FLOTA_CONF)
