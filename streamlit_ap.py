@@ -181,7 +181,7 @@ def calcular(df, flota_config):
             # Nodo Entrega
             if hora_cita:
                 # Llegada permitida: entre 45 min antes y la hora exacta
-                time_windows.append((max(HORA_INICIO, hora_cita - 60), hora_cita))
+                time_windows.append((max(HORA_INICIO, hora_cita - 30), hora_cita))
             else:
                 time_windows.append((HORA_INICIO, HORA_FIN))
             
@@ -411,5 +411,6 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
