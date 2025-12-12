@@ -35,7 +35,7 @@ TIPOS_AMBULANCIA = {
 # --- BARRA LATERAL (CONFIGURACIÓN FLOTA) ---
 with st.sidebar:
     st.header("⚙️ Configuración de Flota")
-    num = st.number_input("Nº Ambulancias Hoy", 1, 30, 4)
+    num = st.number_input("Nº Ambulancias Hoy", 1, 27, 4)
     FLOTA_CONF = []
     
     for i in range(num):
@@ -401,6 +401,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
