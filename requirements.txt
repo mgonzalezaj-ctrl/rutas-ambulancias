@@ -1,0 +1,6 @@
+streamlit
+pandas
+pdfplumber
+geopy
+openpyxl
+ortools
