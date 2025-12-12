@@ -35,7 +35,11 @@ TIPOS_AMBULANCIA = {
 # --- BARRA LATERAL (CONFIGURACIÓN FLOTA) ---
 with st.sidebar:
     st.header("⚙️ Configuración de Flota")
-    num = st.number_input("Nº Ambulancias Hoy", 1, 27, 4)
+        mode = st.radio("Modo de Cálculo", ["Automático", "Manual"], index=0)
+    if mode == "Manual":
+        num = st.number_input("Nº Ambulancias Hoy", 1, 27, 4)
+            else:
+                        num = 27  # Máximo disponible - se calculará automáticamente
     FLOTA_CONF = []
     
     for i in range(num):
@@ -264,8 +268,8 @@ def calcular(df, flota_config):
         index = manager.NodeToIndex(i)
         if i < len(time_windows): # Pacientes
             start, end = time_windows[i]
-            time_dim.CumulVar(index).SetRange(int(start), int(end))
-        else: # Bases
+            time_dim.CumulVar(index).SetRange(max(0, int(start) - 30), int(end) + 30)  # Margen de 30 min
+                    else: # Bases
             time_dim.CumulVar(index).SetRange(HORA_INICIO, HORA_FIN)
 
     # Dimensiones Capacidad (Silla, Camilla, etc)
@@ -294,8 +298,9 @@ def calcular(df, flota_config):
     # 5. Resolver
     st.info("🧠 Optimizando rutas (esto puede tardar unos segundos)...")
     search_params = pywrapcp.DefaultRoutingSearchParameters()
-    search_params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
-    search_params.time_limit.seconds = 30 # Damos un poco más de tiempo por la complejidad
+    search_params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
+    search_params.time_limit.seconds = 120  # Aumentado para problemas complej
+    search_params.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
 
     solution = routing.SolveWithParameters(search_params)
     prog.progress(100)
@@ -401,6 +406,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
