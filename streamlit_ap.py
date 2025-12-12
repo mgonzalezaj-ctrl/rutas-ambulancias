@@ -305,7 +305,7 @@ def calcular(df, flota_config):
     st.info("🧠 Optimizando rutas (esto puede tardar unos segundos)...")
     search_params = pywrapcp.DefaultRoutingSearchParameters()
     search_params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
-    search_params.time_limit.seconds = 15 # Damos un poco más de tiempo por la complejidad
+    search_params.time_limit.seconds = 30 # Damos un poco más de tiempo por la complejidad
 
     solution = routing.SolveWithParameters(search_params)
     prog.progress(100)
@@ -411,4 +411,5 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
