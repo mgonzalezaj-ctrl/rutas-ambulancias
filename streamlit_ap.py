@@ -98,7 +98,7 @@ def calcular(df, flota_config):
     
     # --- PARÁMETROS DE OPERACIÓN ---
     VELOCIDAD_MEDIA = 55.0  # km/h (Conservador para carreteras secundarias)
-    TIEMPO_SERVICIO = 15    # min por parada (subir/bajar paciente)
+    TIEMPO_SERVICIO = 20    # min por parada (subir/bajar paciente)
     HORA_INICIO = 8 * 60    # 08:00 AM
     HORA_FIN = 22 * 60      # 22:00 PM
     
@@ -181,7 +181,7 @@ def calcular(df, flota_config):
             # Nodo Entrega
             if hora_cita:
                 # Llegada permitida: entre 45 min antes y la hora exacta
-                time_windows.append((max(HORA_INICIO, hora_cita - 45), hora_cita))
+                time_windows.append((max(HORA_INICIO, hora_cita - 60), hora_cita))
             else:
                 time_windows.append((HORA_INICIO, HORA_FIN))
             
@@ -411,3 +411,4 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
