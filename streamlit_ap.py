@@ -289,7 +289,7 @@ def calcular(df, flota_config):
         # 
 # RESTRICCIÓN DESACTIVADA: Sin límite de tiempo máximo en ruta
         #             time_dim.CumulVar(d_idx) - time_dim.CumulVar(p_idx) <= max_viaje + TIEMPO_SERVICIO
-        )
+    
 
     # 5. Resolver
     st.info("🧠 Optimizando rutas (esto puede tardar unos segundos)...")
@@ -401,6 +401,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
