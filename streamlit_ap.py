@@ -35,10 +35,8 @@ TIPOS_AMBULANCIA = {
 # --- BARRA LATERAL (CONFIGURACIÓN FLOTA) ---
 with st.sidebar:
     st.header("⚙️ Configuración de Flota")
-        mode = st.radio("Modo de Cálculo", ["Automático", "Manual"], index=0)
-    if mode == "Manual":
-        num = st.number_input("Nº Ambulancias Hoy", 1, 27, 4)
-            else:
+    mode = st.radio("Modo de Cálculo", ["Automático", "Manual"], index=0)
+        num = st.number_input("Nº Ambulancias Hoy", 1, 27, 4)            else:
                         num = 27  # Máximo disponible - se calculará automáticamente
     FLOTA_CONF = []
     
@@ -406,6 +404,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
