@@ -181,7 +181,7 @@ def calcular(df, flota_config):
             # Nodo Entrega
             if hora_cita:
                 # Llegada permitida: entre 45 min antes y la hora exacta
-                time_windows.append((max(HORA_INICIO, hora_cita - 30), hora_cita))
+                time_windows.append((max(HORA_INICIO, hora_cita - 60), hora_cita))
             else:
                 time_windows.append((HORA_INICIO, HORA_FIN))
             
@@ -285,20 +285,10 @@ def calcular(df, flota_config):
         p_idx = manager.NodeToIndex(request[0])
         d_idx = manager.NodeToIndex(request[1])
         
-        # 1. Pickup & Delivery
-        routing.AddPickupAndDelivery(p_idx, d_idx)
-        solver.Add(routing.VehicleVar(p_idx) == routing.VehicleVar(d_idx))
-        solver.Add(time_dim.CumulVar(p_idx) <= time_dim.CumulVar(d_idx))
-        
-        # 2. TIEMPO MÁXIMO DE VIAJE (Evitar "tours turísticos")
-        # El tiempo a bordo no puede exceder el tiempo directo * factor + buffer
-        node_p = request[0]
-        node_d = request[1]
-        tiempo_directo = time_matrix[node_p][node_d] - TIEMPO_SERVICIO # Restamos servicio para comparar viaje puro
-        max_viaje = int((tiempo_directo * FACTOR_MAX_TIEMPO) + BUFFER_MAX_TIEMPO)
-        
-        solver.Add(
-            time_dim.CumulVar(d_idx) - time_dim.CumulVar(p_idx) <= max_viaje + TIEMPO_SERVICIO
+        # RESTRICCIÓN DESACTIVADA: Permite diferentes ambulancias para recogida/entrega
+        # 
+# RESTRICCIÓN DESACTIVADA: Sin límite de tiempo máximo en ruta
+        #             time_dim.CumulVar(d_idx) - time_dim.CumulVar(p_idx) <= max_viaje + TIEMPO_SERVICIO
         )
 
     # 5. Resolver
@@ -411,6 +401,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
