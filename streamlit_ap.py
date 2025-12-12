@@ -36,8 +36,7 @@ TIPOS_AMBULANCIA = {
 with st.sidebar:
     st.header("⚙️ Configuración de Flota")
     num = st.number_input("Nº Ambulancias Hoy", 1, 27, 8)  # Aumentado de 4 a 8
-        FLOTA_CONF = []
-    
+    FLOTA_CONF = []    
     for i in range(num):
         with st.expander(f"Vehículo {i+1}", expanded=(i==0)):
             nom = st.text_input("Matrícula/ID", f"AMB-{101+i}", key=f"n{i}")
@@ -402,6 +401,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
