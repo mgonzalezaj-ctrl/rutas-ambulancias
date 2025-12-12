@@ -3,4 +3,8 @@ pandas
 pdfplumber
 geopy
 openpyxl
+
 ortools
+folium
+streamlit-folium
+openpyxl
