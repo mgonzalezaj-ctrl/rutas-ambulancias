@@ -12,8 +12,7 @@ st.set_page_config(page_title="Gestión de Rutas Sanitarias Pro", layout="wide",
 st.markdown("""<style>.stButton>button { background-color: #d32f2f; color: white; width: 100%; }</style>""", unsafe_allow_html=True)
 
 st.title("🚑 Sistema Inteligente de Rutas Sanitarias")
-st.markdown("**Características:** Multi-Base, Ventanas Horarias, Acompañantes y Límite de Tiempo de Viaje.")
-
+st.markdown("**Características:** Multi-Base, Ventanas Horarias, Acompañantes, Jornada 8h y 10min por servicio.")
 # --- BASES OPERATIVAS ---
 BASES_CONOCIDAS = {
     "Hospital Soria (Central)": (41.7690, -2.4615),
@@ -35,7 +34,7 @@ TIPOS_AMBULANCIA = {
 # --- BARRA LATERAL (CONFIGURACIÓN FLOTA) ---
 with st.sidebar:
     st.header("⚙️ Configuración de Flota")
-    num = st.number_input("Nº Ambulancias Hoy", 1, 27, 4)
+    num = st.number_input("Nº Ambulancias Máximo (el sistema usará solo las necesarias)", 1, 30, 15)
     FLOTA_CONF = []
     
     for i in range(num):
@@ -98,7 +97,7 @@ def calcular(df, flota_config):
     
     # --- PARÁMETROS DE OPERACIÓN ---
     VELOCIDAD_MEDIA = 55.0  # km/h (Conservador para carreteras secundarias)
-    TIEMPO_SERVICIO = 20    # min por parada (subir/bajar paciente)
+    TIEMPO_SERVICIO = 10    # min por parada (subir/bajar paciente)
     HORA_INICIO = 8 * 60    # 08:00 AM
     HORA_FIN = 22 * 60      # 22:00 PM
     
@@ -268,6 +267,15 @@ def calcular(df, flota_config):
         else: # Bases
             time_dim.CumulVar(index).SetRange(HORA_INICIO, HORA_FIN)
 
+            # Límite de jornada laboral: 8 horas máximo por ambulancia
+                MAX_JORNADA = 8 * 60  # 480 minutos = 8 horas
+                for vehicle_id in range(num_vehiculos):
+                            start_idx = routing.Start(vehicle_id)
+                            end_idx = routing.End(vehicle_id)
+                            routing.solver().Add(
+                                            time_dim.CumulVar(end_idx) - time_dim.CumulVar(start_idx) <= MAX_JORNADA
+                                        )
+
     # Dimensiones Capacidad (Silla, Camilla, etc)
     for k in veh_caps:
         def demand_cb(from_index):
@@ -401,6 +409,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
