@@ -330,6 +330,7 @@ def calcular(df, flota_config):
             index = routing.Start(vehicle_id)
             veh_name = flota_config[vehicle_id]['nombre']
             route_text = []
+                        hora_inicio = None  # Para calcular horas totales trabajadas
             
             while not routing.IsEnd(index):
                 node_index = manager.IndexToNode(index)
@@ -439,6 +440,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
