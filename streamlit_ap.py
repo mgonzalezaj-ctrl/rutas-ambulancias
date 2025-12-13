@@ -109,7 +109,7 @@ def calcular(df, flota_config):
     # 1. Procesar Pacientes
     pacientes_puntos = []
     nombres = []
-        direcciones_pacientes = []  # [(dir_recogida, dir_destino), ...]
+    direcciones_pacientes = []  # [(dir_recogida, dir_destino), ...]
     # Demandas separadas por tipo
     dem = {"silla":[], "camilla":[], "sentado":[], "aisl":[]}
     time_windows = [] 
@@ -439,6 +439,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
