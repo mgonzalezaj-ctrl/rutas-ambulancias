@@ -109,6 +109,7 @@ def calcular(df, flota_config):
     # 1. Procesar Pacientes
     pacientes_puntos = []
     nombres = []
+        direcciones_pacientes = []  # [(dir_recogida, dir_destino), ...]
     # Demandas separadas por tipo
     dem = {"silla":[], "camilla":[], "sentado":[], "aisl":[]}
     time_windows = [] 
@@ -141,6 +142,12 @@ def calcular(df, flota_config):
                 f"RECOGER: {nom}{acomp_txt}", 
                 f"ENTREGAR: {nom} ({hora_txt})"
             ])
+
+                # Guardar direcciones originales
+                        direcciones_pacientes.extend([
+                                            (r.get("Recogida", ""), r.get("Destino", "")),
+                                            (r.get("Recogida", ""), r.get("Destino", ""))
+                                        ])
             
             # Mapa (Verde=Origen, Rojo=Destino)
             map_d.extend([
@@ -331,6 +338,10 @@ def calcular(df, flota_config):
                 time_var = time_dim.CumulVar(index)
                 t_val = solution.Min(time_var)
                 t_str = min_to_hhmm(t_val)
+                            
+            # Capturar la primera hora (hora de inicio del turno)
+            if hora_inicio is None:
+                hora_inicio = t_val
                 
                 # Nombre del paso
                 if node_index >= len(nombres):
@@ -338,10 +349,24 @@ def calcular(df, flota_config):
                     step_desc = f"BASE ({base_n})"
                     step_ui = f"🏠 **{t_str}** - Salida Base {base_n}"
                 else:
-                    step_desc = nombres[node_index]
-                    icon = "🟢" if "RECOGER" in step_desc else "🔴"
-                    step_ui = f"{icon} **{t_str}** - {step_desc}"
+            step_desc = nombres[node_index]
                 
+                # Obtener dirección completa del paciente
+                if node_index < len(direcciones_pacientes):
+                    dir_origen, dir_destino = direcciones_pacientes[node_index]
+                else:
+                    dir_origen, dir_destino = "", ""
+                
+                if "RECOGER" in step_desc:
+                    icon = "🟢"
+                    # Extraer solo el nombre del paciente (sin "RECOGER:")
+                    nombre_paciente = step_desc.replace("RECOGER: ", "")
+                    step_ui = f"{icon} **{t_str}** - RECOGER: {nombre_paciente} en {dir_origen}"
+                else:  # ENTREGAR
+                    icon = "🔴"
+                    # Extraer nombre del paciente (sin "ENTREGAR:" y hora entre paréntesis)
+                    nombre_paciente = step_desc.replace("ENTREGAR: ", "").split(" (")[0]
+                    step_ui = f"{icon} **{t_str}** - ENTREGAR: {nombre_paciente} en {dir_destino}"                
                 route_text.append(step_ui)
                 
                 # Guardar para Excel
@@ -357,8 +382,13 @@ def calcular(df, flota_config):
             # Fin de ruta
             time_var = time_dim.CumulVar(index)
             t_str = min_to_hhmm(solution.Min(time_var))
-            route_text.append(f"🏁 **{t_str}** - Fin de Servicio")
-            export_data.append({"Ambulancia": veh_name, "Hora Estimada": t_str, "Actividad": "FIN DE TURNO", "Orden": 999})
+        # Calcular horas totales trabajadas
+            hora_fin = solution.Min(time_var)
+            if hora_inicio is not None:
+                horas_trabajadas = (hora_fin - hora_inicio) / 60  # Convertir minutos a horas
+                route_text.append(f"🏁 **{t_str}** - Fin de Servicio (Total trabajado: {horas_trabajadas:.1f}h)")
+            else:
+                route_text.append(f"🏁 **{t_str}** - Fin de Servicio")            export_data.append({"Ambulancia": veh_name, "Hora Estimada": t_str, "Actividad": "FIN DE TURNO", "Orden": 999})
 
             # Mostrar tarjeta en pantalla
             with st.expander(f"🚑 {veh_name}", expanded=True):
@@ -409,6 +439,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
