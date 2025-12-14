@@ -163,11 +163,18 @@ if 'df_resultado' in st.session_state:
     # Exportar Excel
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        df_res.to_excel(writer, index=False, sheet_name='Hoja_Ruta')
+        # Crear una hoja por cada vehículo
+        for vehiculo in df_res['Vehículo'].unique():
+            if vehiculo != "SIN FLOTA":
+                df_vehiculo = df_res[df_res['Vehículo'] == vehiculo]
+                df_vehiculo.to_excel(writer, index=False, sheet_name=vehiculo)
         
+        # Hoja resumen con todos los datos
+        df_res.to_excel(writer, index=False, sheet_name='Resumen_Completo')        
     st.download_button(
         label="📥 Descargar Excel",
         data=buffer.getvalue(),
         file_name="rutas_ambulancias.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
