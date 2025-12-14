@@ -82,7 +82,38 @@ def puede_llevar(vehiculo_tipo, paciente_tipo):
 # ==========================================
 
 # Paso 1: Generar
-if st.button("🔄 Generar 100 Servicios"):
+
+# Opción 1: Cargar archivo Excel con servicios
+st.subheader("📄 Cargar Servicios desde Excel")
+uploaded_file = st.file_uploader("Sube tu archivo Excel con los servicios del día", type=['xlsx', 'xls'])
+
+if uploaded_file is not None:
+    try:
+        df = pd.read_excel(uploaded_file)
+        
+        # Validar columnas necesarias
+        columnas_requeridas = ['Hora_Cita', 'Paciente', 'Recogida', 'Destino', 'Tipo']
+        columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
+        
+        if columnas_faltantes:
+            st.error(f"❌ Columnas faltantes en el archivo: {', '.join(columnas_faltantes)}")
+            st.info("💡 El archivo debe tener estas columnas: Hora_Cita, Paciente, Recogida, Destino, Tipo")
+        else:
+            # Agregar ID_Servicio si no existe
+            if 'ID_Servicio' not in df.columns:
+                df['ID_Servicio'] = range(1, len(df) + 1)
+            
+            st.session_state['df_servicios'] = df
+            st.success(f"✅ {len(df)} servicios cargados correctamente desde el archivo.")
+            
+    except Exception as e:
+        st.error(f"❌ Error al leer el archivo: {str(e)}")
+
+st.divider()
+
+# Opción 2: Generar datos aleatorios
+st.subheader("🔄 O Generar Servicios Aleatorios (Prueba)")if st.button("🔄 Generar 100 Servicios"):
+
     df = generar_datos()
     st.session_state['df_servicios'] = df
     st.success("✅ 100 Servicios generados. Pulsa 'Asignar' para procesar.")
@@ -177,4 +208,5 @@ if 'df_resultado' in st.session_state:
         file_name="rutas_ambulancias.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
