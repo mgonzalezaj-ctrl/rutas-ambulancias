@@ -389,7 +389,8 @@ def calcular(df, flota_config):
                 horas_trabajadas = (hora_fin - hora_inicio) / 60  # Convertir minutos a horas
                 route_text.append(f"🏁 **{t_str}** - Fin de Servicio (Total trabajado: {horas_trabajadas:.1f}h)")
             else:
-                route_text.append(f"🏁 **{t_str}** - Fin de Servicio")            export_data.append({"Ambulancia": veh_name, "Hora Estimada": t_str, "Actividad": "FIN DE TURNO", "Orden": 999})
+                route_text.append(f"🏁 **{t_str}** - Fin de Servicio")
+            export_data.append({"Ambulancia": veh_name, "Hora Estimada": t_str, "Actividad": "FIN DE TURNO", "Orden": 999})
 
             # Mostrar tarjeta en pantalla
             with st.expander(f"🚑 {veh_name}", expanded=True):
@@ -440,6 +441,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
