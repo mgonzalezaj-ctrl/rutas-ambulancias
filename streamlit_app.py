@@ -1,463 +1,405 @@
 import streamlit as st
 import pandas as pd
-import pdfplumber
-import time
+import numpy as np
 from geopy.geocoders import Nominatim
+from geopy.extra.rate_limiter import RateLimiter
 from geopy.distance import geodesic
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
+import time
+from datetime import datetime, timedelta
+import io
 
-# Aplicación de gestión de rutas optimizadas
-# --- CONFIGURACIÓN VISUAL ---
-st.set_page_config(page_title="Gestión de Rutas Sanitarias Pro", layout="wide", page_icon="🚑")
-st.markdown("""<style>.stButton>button { background-color: #d32f2f; color: white; width: 100%; }</style>""", unsafe_allow_html=True)
+# ==========================================
+# CONFIGURACIÓN DE LA PÁGINA
+# ==========================================
+st.set_page_config(
+    page_title="Optimización Rutas Ambulancias",
+    page_icon="🚑",
+    layout="wide"
+)
 
-st.title("🚑 Sistema Inteligente de Rutas Sanitarias")
-st.markdown("**Características:** Multi-Base, Ventanas Horarias, Acompañantes, Jornada 8h y 10min por servicio.")
-# --- BASES OPERATIVAS ---
-BASES_CONOCIDAS = {
-    "Hospital Soria (Central)": (41.7690, -2.4615),
-    "Centro Salud Almazán": (41.4835, -2.5317),
-    "Centro Salud Burgo de Osma": (41.5878, -3.0664),
-    "Centro Salud Ólvega": (41.7795, -1.9841),
-    "Otra (Geolocalizar)": None
-}
+# ==========================================
+# CLASES Y CONFIGURACIÓN
+# ==========================================
 
-# --- DATOS TÉCNICOS ---
-# Definimos capacidades: [Silla, Camilla, Asientos, Aislamiento]
-TIPOS_AMBULANCIA = {
-    "A (1 Camilla/Silla + 2 Sent)": {"silla":1, "camilla":1, "sentado":2, "aisl":100},
-    "B (2 Sillas + 4 Sent)":        {"silla":2, "camilla":0, "sentado":4, "aisl":100},
-    "C (7 Sentados - Colectiva)":   {"silla":0, "camilla":0, "sentado":7, "aisl":100},
-    "UVI (1 Camilla Exclusiva)":    {"silla":0, "camilla":1, "sentado":1, "aisl":100}
-}
+class Ambulancia:
+    def __init__(self, tipo, capacidad, cantidad):
+        self.tipo = tipo
+        self.capacidad = capacidad
+        self.cantidad = cantidad
 
-# --- BARRA LATERAL (CONFIGURACIÓN FLOTA) ---
-with st.sidebar:
-    st.header("⚙️ Configuración de Flota")
-    num = st.number_input("Nº Ambulancias Máximo (el sistema usará solo las necesarias)", 1, 30, 15)
-    FLOTA_CONF = []
+def haversine_time(coord1, coord2, speed_kmh=40):
+    """
+    Calcula el tiempo estimado en minutos entre dos coordenadas
+    asumiendo una velocidad media constante (distancia Haversine).
+    """
+    if not coord1 or not coord2:
+        return 999999  # Penalización alta si falta coord
     
-    for i in range(num):
-        with st.expander(f"Vehículo {i+1}", expanded=(i==0)):
-            nom = st.text_input("Matrícula/ID", f"AMB-{101+i}", key=f"n{i}")
-            tipo = st.selectbox("Tipo", list(TIPOS_AMBULANCIA.keys()), key=f"t{i}")
-            base_nombre = st.selectbox("Base de Salida", list(BASES_CONOCIDAS.keys()), key=f"b{i}")
-            
-            base_coords = BASES_CONOCIDAS[base_nombre]
-            if base_nombre == "Otra (Geolocalizar)":
-                dir_manual = st.text_input("Dirección base", "Calle...", key=f"bm{i}")
-                base_coords = "MANUAL:" + dir_manual
-            
-            FLOTA_CONF.append({
-                "nombre": nom,
-                "caps": TIPOS_AMBULANCIA[tipo],
-                "base_coords": base_coords,
-                "base_nombre": base_nombre
-            })
+    dist_km = geodesic(coord1, coord2).km
+    # Tiempo = Distancia / Velocidad * 60 min
+    minutes = (dist_km / speed_kmh) * 60
+    return int(minutes + 1)  # +1 para ser conservador y redondear arriba
 
-# --- FUNCIONES AUXILIARES ---
-def leer_pdf(f):
+@st.cache_data
+def geocode_address(address):
+    """
+    Geocodifica una dirección usando Nominatim con caché de Streamlit.
+    """
+    geolocator = Nominatim(user_agent="ambulance_optimizer_app_v1")
     try:
-        with pdfplumber.open(f) as pdf:
-            data = []
-            for p in pdf.pages:
-                tbl = p.extract_tables()
-                for t in tbl: data.extend(t[1:] if not data else t)
-            return pd.DataFrame(data[1:], columns=data[0]) if data else None
-    except: return None
+        # Añadimos un pequeño sleep para respetar la política de uso de Nominatim
+        time.sleep(1.1) 
+        location = geolocator.geocode(address)
+        if location:
+            return (location.latitude, location.longitude)
+        return None
+    except Exception as e:
+        return None
 
-def geocode(d, geo):
-    try: 
-        # Pequeña pausa para no saturar el servidor de mapas gratuito
-        time.sleep(0.6) 
-        return (geo.geocode(d if "España" in d else d+", España", timeout=10).point[:2])
-    except: return None
+# ==========================================
+# LÓGICA DE OR-TOOLS
+# ==========================================
 
-def time_to_min(t_str):
-    """Convierte HH:MM a minutos del día"""
-    try:
-        if pd.isna(t_str) or str(t_str).strip() == "": return None
-        t_str = str(t_str).strip()
-        if " " in t_str: t_str = t_str.split(" ")[1] # Si viene formato fecha
-        h, m = map(int, t_str.split(":")[:2])
-        return h * 60 + m
-    except: return None
-
-def min_to_hhmm(m):
-    """Convierte minutos del día a HH:MM"""
-    h = int(m // 60)
-    mn = int(m % 60)
-    return f"{h:02d}:{mn:02d}"
-
-# --- LÓGICA PRINCIPAL (CÁLCULO) ---
-def calcular(df, flota_config):
-    geo = Nominatim(user_agent="app_rutas_sanitarias_final_v1")
-    prog = st.progress(0)
-    st.info("📡 Geolocalizando direcciones y calculando restricciones...")
+def create_data_model(locations, capacities, time_windows, num_vehicles, depot_index=0):
+    """Crea el modelo de datos para OR-Tools."""
+    data = {}
     
-    # --- PARÁMETROS DE OPERACIÓN ---
-    VELOCIDAD_MEDIA = 55.0  # km/h (Conservador para carreteras secundarias)
-    TIEMPO_SERVICIO = 10    # min por parada (subir/bajar paciente)
-    HORA_INICIO = 8 * 60    # 08:00 AM
-    HORA_FIN = 22 * 60      # 22:00 PM
+    # 1. Matriz de Tiempos (minutos)
+    num_locations = len(locations)
+    time_matrix = [[0] * num_locations for _ in range(num_locations)]
     
-    # Factor de tolerancia para "Tiempo Máximo de Viaje"
-    # Un viaje no puede durar más que: (Tiempo Directo * 1.5) + 30 min
-    FACTOR_MAX_TIEMPO = 3.0 
-    BUFFER_MAX_TIEMPO = 90 
-
-    # 1. Procesar Pacientes
-    pacientes_puntos = []
-    nombres = []
-    direcciones_pacientes = []  # [(dir_recogida, dir_destino), ...]
-    # Demandas separadas por tipo
-    dem = {"silla":[], "camilla":[], "sentado":[], "aisl":[]}
-    time_windows = [] 
-    pairs = []
-    map_d = []
-    
-    total_rows = len(df)
-    
-    for i, r in enumerate(df):
-        prog.progress((i/total_rows)*0.9)
-        
-        # Geolocalizar
-        orig = geocode(r.get("Recogida"), geo)
-        dest = geocode(r.get("Destino"), geo)
-        
-        if orig and dest:
-            idx = len(pacientes_puntos) # Índice del nodo de recogida
-            pacientes_puntos.extend([orig, dest])
-            
-            # Datos básicos
-            nom = r.get("Paciente", "?")
-            hora_cita = time_to_min(r.get("Hora"))
-            tiene_acomp = str(r.get("Acompañante", "")).upper() == "SI"
-            
-            # Textos para visualización
-            hora_txt = r.get("Hora", "Flexible") if r.get("Hora") else "Flexible"
-            acomp_txt = " + Acompañante" if tiene_acomp else ""
-            
-            nombres.extend([
-                f"RECOGER: {nom}{acomp_txt}", 
-                f"ENTREGAR: {nom} ({hora_txt})"
-            ])
-
-                # Guardar direcciones originales
-        direcciones_pacientes.extend([
-            (r.get("Recogida", ""), r.get("Destino", "")),
-            (r.get("Recogida", ""), r.get("Destino", ""))
-        ])
-            
-            # Mapa (Verde=Origen, Rojo=Destino)
-                    map_d.extend([
-                {"lat":orig[0], "lon":orig[1], "color":"#00FF00"},
-                {"lat":dest[0], "lon":dest[1], "color":"#FF0000"}
-            ])
-            
-            # --- CÁLCULO DE CAPACIDADES ---
-            tipo_req = str(r.get("Tipo", "")).upper()
-            req_silla = "SILLA" in tipo_req
-            req_camilla = "CAMILLA" in tipo_req
-            req_aisl = "AISL" in tipo_req
-            req_sentado = "SENTADO" in tipo_req
-            
-            # Lógica Acompañante: Ocupa un asiento normal.
-            # Si el paciente va en Silla, necesitamos 1 hueco silla + 1 asiento.
-            # Si el paciente va Sentado, necesitamos 1 asiento + 1 asiento.
-            demanda_silla = 1 if req_silla else 0
-            demanda_camilla = 1 if req_camilla else 0
-            demanda_aisl = 1 if req_aisl else 0
-            
-            # El asiento base del paciente (si no es camilla/silla) + asiento acompañante
-            asientos_necesarios = 0
-            if req_sentado: asientos_necesarios += 1
-            if tiene_acomp: asientos_necesarios += 1
-            
-            # Llenar arrays de demanda (+ en origen, - en destino)
-            dem["silla"].extend([demanda_silla, -demanda_silla])
-            dem["camilla"].extend([demanda_camilla, -demanda_camilla])
-            dem["aisl"].extend([demanda_aisl, -demanda_aisl])
-            dem["sentado"].extend([asientos_necesarios, -asientos_necesarios])
-            
-            # --- VENTANAS DE TIEMPO ---
-            # Nodo Recogida (Flexible, pero dentro del turno)
-            time_windows.append((HORA_INICIO, HORA_FIN))
-            
-            # Nodo Entrega
-            if hora_cita:
-                # Llegada permitida: entre 45 min antes y la hora exacta
-                time_windows.append((max(HORA_INICIO, hora_cita - 60), hora_cita))
-            else:
-                time_windows.append((HORA_INICIO, HORA_FIN))
-            
-            # Registrar par (Pickup -> Delivery)
-            pairs.append([idx, idx+1])
-
-    # 2. Procesar Bases y Flota
-    veh_coords = []
-    veh_caps = {"silla":[], "camilla":[], "sentado":[], "aisl":[]}
-    
-    for v in flota_config:
-        coords = v["base_coords"]
-        if isinstance(coords, str) and coords.startswith("MANUAL:"):
-            c = geocode(coords.replace("MANUAL:", ""), geo)
-            coords = c if c else BASES_CONOCIDAS["Hospital Soria (Central)"]
-        veh_coords.append(coords)
-        
-        for k in veh_caps: veh_caps[k].append(v["caps"][k])
-
-    if not pacientes_puntos:
-        st.error("❌ No se pudieron geolocalizar pacientes. Verifica direcciones.")
-        return
-
-    # 3. Matrices de Distancia y Tiempo
-    all_points = pacientes_puntos + veh_coords
-    num_nodos = len(all_points)
-    num_vehiculos = len(flota_config)
-    
-    # Índices de Bases
-    base_indices = [len(pacientes_puntos) + i for i in range(num_vehiculos)]
-    starts = base_indices
-    ends = base_indices
-
-    dist_matrix = {}
-    time_matrix = {}
-    
-    for i in range(num_nodos):
-        dist_matrix[i] = {}
-        time_matrix[i] = {}
-        for j in range(num_nodos):
-            if i == j: 
-                dist_matrix[i][j] = 0
+    for i in range(num_locations):
+        for j in range(num_locations):
+            if i == j:
                 time_matrix[i][j] = 0
             else:
-                d_m = geodesic(all_points[i], all_points[j]).meters
-                dist_matrix[i][j] = int(d_m)
-                
-                # Tiempo (min) = (km / v) * 60
-                travel_time = (d_m / 1000 / VELOCIDAD_MEDIA) * 60
-                
-                # Tiempo de servicio en ORIGEN (si es paciente)
-                service_time = TIEMPO_SERVICIO if i < len(pacientes_puntos) else 0
-                time_matrix[i][j] = int(travel_time + service_time)
+                # Calculamos tiempo de viaje estimado
+                time_matrix[i][j] = haversine_time(locations[i], locations[j])
+    
+    data['time_matrix'] = time_matrix
+    data['time_windows'] = time_windows
+    data['num_vehicles'] = num_vehicles
+    data['depot'] = depot_index
+    data['vehicle_capacities'] = capacities
+    
+    # Demandas (1 paciente = 1 unidad de capacidad, el depósito demanda 0)
+    data['demands'] = [0] + [1] * (num_locations - 1)
+    
+    return data
 
-    # 4. Configurar OR-Tools
-    manager = pywrapcp.RoutingIndexManager(num_nodos, num_vehiculos, starts, ends)
+def solve_vrp(data, service_time_min, max_work_time_min):
+    """Ejecuta el solver de optimización."""
+    manager = pywrapcp.RoutingIndexManager(
+        len(data['time_matrix']), 
+        data['num_vehicles'], 
+        data['depot']
+    )
     routing = pywrapcp.RoutingModel(manager)
 
-    # Callback de Tiempo (Coste Principal)
+    # --- Dimensión de Tiempo ---
     def time_callback(from_index, to_index):
         from_node = manager.IndexToNode(from_index)
         to_node = manager.IndexToNode(to_index)
-        return time_matrix[from_node][to_node]
+        # Tiempo de viaje + tiempo de servicio (10 min) en el destino
+        travel_time = data['time_matrix'][from_node][to_node]
+        if to_node == 0: # Si vuelve al depósito, no hay tiempo de servicio
+             return travel_time
+        return travel_time + service_time_min
 
-    transit_cb = routing.RegisterTransitCallback(time_callback)
-    routing.SetArcCostEvaluatorOfAllVehicles(transit_cb)
+    transit_callback_index = routing.RegisterTransitCallback(time_callback)
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
 
-    # Dimensión Tiempo
     routing.AddDimension(
-        transit_cb,
-        60,    # Slack (espera máx permitida en puerta)
-        24*60, # Horizonte máx
-        False, 
-        "Time"
+        transit_callback_index,
+        30,  # Slack (tiempo de espera permitido si llega antes)
+        max_work_time_min,  # Horizonte máximo (8 horas = 480 min)
+        False,  # Force start cumul to zero
+        'Time'
     )
-    time_dim = routing.GetDimensionOrDie("Time")
+    time_dimension = routing.GetDimensionOrDie('Time')
 
     # Restricciones de Ventana Horaria
-    for i in range(num_nodos):
-        index = manager.NodeToIndex(i)
-        if i < len(time_windows): # Pacientes
-            start, end = time_windows[i]
-            time_dim.CumulVar(index).SetRange(int(start), int(end))
-        else: # Bases
-            time_dim.CumulVar(index).SetRange(HORA_INICIO, HORA_FIN)
+    for location_idx, (start, end) in enumerate(data['time_windows']):
+        if location_idx == 0:
+            continue # El depósito no tiene ventana estricta aquí, maneja el total
+        index = manager.NodeToIndex(location_idx)
+        time_dimension.CumulVar(index).SetRange(start, end)
 
-            # Límite de jornada laboral: 8 horas máximo por ambulancia
-                MAX_JORNADA = 8 * 60  # 480 minutos = 8 horas
-                for vehicle_id in range(num_vehiculos):
-                            start_idx = routing.Start(vehicle_id)
-                            end_idx = routing.End(vehicle_id)
-                            routing.solver().Add(
-                                            time_dim.CumulVar(end_idx) - time_dim.CumulVar(start_idx) <= MAX_JORNADA
-                                        )
+    # --- Dimensión de Capacidad ---
+    def demand_callback(from_index):
+        from_node = manager.IndexToNode(from_index)
+        return data['demands'][from_node]
 
-    # Dimensiones Capacidad (Silla, Camilla, etc)
-    for k in veh_caps:
-        def demand_cb(from_index):
-            node = manager.IndexToNode(from_index)
-            if node >= len(dem[k]): return 0
-            return dem[k][node]
+    demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
+    routing.AddDimensionWithVehicleCapacity(
+        demand_callback_index,
+        0,  # Null capacity slack
+        data['vehicle_capacities'],
+        True,  # Start cumul to zero
+        'Capacity'
+    )
+
+    # --- Estrategia de Búsqueda ---
+    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+    search_parameters.first_solution_strategy = (
+        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    )
+    search_parameters.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+    )
+    search_parameters.time_limit.seconds = 5 # Límite de tiempo para resolver
+
+    solution = routing.SolveWithParameters(search_parameters)
+    return solution, routing, manager
+
+# ==========================================
+# INTERFAZ DE USUARIO (STREAMLIT)
+# ==========================================
+
+def main():
+    st.title("🚑 Optimización de Rutas de Ambulancias")
+    st.markdown("Sistema de gestión de flota con restricciones de ventanas horarias y capacidad.")
+
+    # --- SIDEBAR: Configuración ---
+    with st.sidebar:
+        st.header("1. Configuración de Flota")
         
-        idx_cb = routing.RegisterUnaryTransitCallback(demand_cb)
-        routing.AddDimensionWithVehicleCapacity(idx_cb, 0, veh_caps[k], True, f"Cap_{k}")
+        # Configuración de tipos de ambulancia
+        fleet_config = []
+        col_type, col_cap, col_qty = st.columns(3)
+        with col_type:
+            st.write("**Tipo**")
+            t1 = "Tipo A"
+            t2 = "Tipo B"
+            t3 = "Tipo C"
+            t4 = "UVI"
+        with col_cap:
+            st.write("**Cap.**")
+            c1 = st.number_input("Cap A", value=1, min_value=1, label_visibility="collapsed")
+            c2 = st.number_input("Cap B", value=2, min_value=1, label_visibility="collapsed")
+            c3 = st.number_input("Cap C", value=4, min_value=1, label_visibility="collapsed")
+            c4 = st.number_input("Cap UVI", value=1, min_value=1, label_visibility="collapsed")
+        with col_qty:
+            st.write("**Cant.**")
+            q1 = st.number_input("Cant A", value=2, min_value=0, label_visibility="collapsed")
+            q2 = st.number_input("Cant B", value=1, min_value=0, label_visibility="collapsed")
+            q3 = st.number_input("Cant C", value=0, min_value=0, label_visibility="collapsed")
+            q4 = st.number_input("Cant UVI", value=1, min_value=0, label_visibility="collapsed")
 
-    # --- RESTRICCIONES COMPLEJAS ---
-    solver = routing.solver()
+        # Construir lista de vehículos aplanada
+        vehicle_capacities = []
+        vehicle_names = []
+        
+        # Agregar según cantidad
+        for _ in range(q1): 
+            vehicle_capacities.append(c1)
+            vehicle_names.append("Tipo A")
+        for _ in range(q2): 
+            vehicle_capacities.append(c2)
+            vehicle_names.append("Tipo B")
+        for _ in range(q3): 
+            vehicle_capacities.append(c3)
+            vehicle_names.append("Tipo C")
+        for _ in range(q4): 
+            vehicle_capacities.append(c4)
+            vehicle_names.append("UVI")
+
+        st.divider()
+        st.header("2. Parámetros Operativos")
+        depot_address = st.text_input("Dirección Base (Depósito)", "Puerta del Sol, Madrid, España")
+        start_hour = st.time_input("Hora Inicio Jornada", value=datetime.strptime("08:00", "%H:%M").time())
+        shift_duration = st.slider("Duración Jornada (horas)", 4, 12, 8)
+        service_time = st.number_input("Tiempo de Servicio (min/paciente)", value=10)
+
+    # --- MAIN: Carga de Datos ---
+    st.header("3. Cargar Pacientes")
     
-    for request in pairs:
-        p_idx = manager.NodeToIndex(request[0])
-        d_idx = manager.NodeToIndex(request[1])
-        
-        # RESTRICCIÓN DESACTIVADA: Permite diferentes ambulancias para recogida/entrega
-        # 
-# RESTRICCIÓN DESACTIVADA: Sin límite de tiempo máximo en ruta
-        #             time_dim.CumulVar(d_idx) - time_dim.CumulVar(p_idx) <= max_viaje + TIEMPO_SERVICIO
+    uploaded_file = st.file_uploader("Sube tu Excel (.xlsx)", type=['xlsx'])
     
-
-    # 5. Resolver
-    st.info("🧠 Optimizando rutas (esto puede tardar unos segundos)...")
-    search_params = pywrapcp.DefaultRoutingSearchParameters()
-    search_params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
-    search_params.time_limit.seconds = 30 # Damos un poco más de tiempo por la complejidad
-
-    solution = routing.SolveWithParameters(search_params)
-    prog.progress(100)
-
-    # 6. Resultados y Exportación
-    if solution:
-        st.success("✅ ¡Rutas calculadas con éxito!")
-        
-        # Mapa General
-        st.map(pd.DataFrame(map_d))
-        
-        export_data = [] # Lista para el CSV final
-
-        cols = st.columns(min(num_vehiculos, 3))
-        
-        for vehicle_id in range(num_vehiculos):
-            index = routing.Start(vehicle_id)
-            veh_name = flota_config[vehicle_id]['nombre']
-            route_text = []
-                        hora_inicio = None  # Para calcular horas totales trabajadas
-            
-            while not routing.IsEnd(index):
-                node_index = manager.IndexToNode(index)
-                
-                # Tiempo
-                time_var = time_dim.CumulVar(index)
-                t_val = solution.Min(time_var)
-                t_str = min_to_hhmm(t_val)
-                            
-            # Capturar la primera hora (hora de inicio del turno)
-            if hora_inicio is None:
-                hora_inicio = t_val
-                
-                # Nombre del paso
-                if node_index >= len(nombres):
-                    base_n = flota_config[vehicle_id]['base_nombre']
-                    step_desc = f"BASE ({base_n})"
-                    step_ui = f"🏠 **{t_str}** - Salida Base {base_n}"
-                else:
-            step_desc = nombres[node_index]
-                
-                # Obtener dirección completa del paciente
-                if node_index < len(direcciones_pacientes):
-                    dir_origen, dir_destino = direcciones_pacientes[node_index]
-                else:
-                    dir_origen, dir_destino = "", ""
-                
-                if "RECOGER" in step_desc:
-                    icon = "🟢"
-                    # Extraer solo el nombre del paciente (sin "RECOGER:")
-                    nombre_paciente = step_desc.replace("RECOGER: ", "")
-                    step_ui = f"{icon} **{t_str}** - RECOGER: {nombre_paciente} en {dir_origen}"
-                else:  # ENTREGAR
-                    icon = "🔴"
-                    # Extraer nombre del paciente (sin "ENTREGAR:" y hora entre paréntesis)
-                    nombre_paciente = step_desc.replace("ENTREGAR: ", "").split(" (")[0]
-                    step_ui = f"{icon} **{t_str}** - ENTREGAR: {nombre_paciente} en {dir_destino}"                
-                route_text.append(step_ui)
-                
-                # Guardar para Excel
-                export_data.append({
-                    "Ambulancia": veh_name,
-                    "Hora Estimada": t_str,
-                    "Actividad": step_desc,
-                    "Orden": len(route_text)
-                })
-                
-                index = solution.Value(routing.NextVar(index))
-            
-            # Fin de ruta
-            time_var = time_dim.CumulVar(index)
-            t_str = min_to_hhmm(solution.Min(time_var))
-        # Calcular horas totales trabajadas
-            hora_fin = solution.Min(time_var)
-            if hora_inicio is not None:
-                horas_trabajadas = (hora_fin - hora_inicio) / 60  # Convertir minutos a horas
-                route_text.append(f"🏁 **{t_str}** - Fin de Servicio (Total trabajado: {horas_trabajadas:.1f}h)")
-            else:
-                route_text.append(f"🏁 **{t_str}** - Fin de Servicio")
-            export_data.append({"Ambulancia": veh_name, "Hora Estimada": t_str, "Actividad": "FIN DE TURNO", "Orden": 999})
-
-            # Mostrar tarjeta en pantalla
-            with st.expander(f"🚑 {veh_name}", expanded=True):
-                if len(route_text) <= 2:
-                    st.caption("Sin servicios asignados.")
-                else:
-                    for line in route_text: st.markdown(line)
-
-        # --- SECCIÓN DE DESCARGA ---
-        st.markdown("### 📥 Descargas para Conductores")
-        df_export = pd.DataFrame(export_data)
-        csv = df_export.to_csv(index=False).encode('utf-8')
-        
-        st.download_button(
-            label="📄 Descargar Hoja de Ruta (CSV/Excel)",
-            data=csv,
-            file_name="hoja_de_ruta_optimizada.csv",
-            mime="text/csv"
-        )
-        
+    # Template para descargar
+    example_data = {
+        'Paciente': ['Juan Pérez', 'Ana Gómez', 'Luis Royo'],
+        'Direccion': ['Calle Gran Vía 10, Madrid', 'Paseo de la Castellana 50, Madrid', 'Calle de Alcalá 200, Madrid'],
+        'Hora_Min': ['09:00', '09:30', '11:00'],
+        'Hora_Max': ['11:00', '12:00', '14:00']
+    }
+    
+    if not uploaded_file:
+        st.info("👋 Por favor sube un archivo Excel. Debe tener columnas: 'Paciente', 'Direccion', 'Hora_Min', 'Hora_Max'.")
+        df_template = pd.DataFrame(example_data)
+        st.download_button("Descargar Plantilla Ejemplo", 
+                           data=df_template.to_csv(index=False).encode('utf-8'),
+                           file_name="plantilla_ambulancias.csv",
+                           mime='text/csv')
     else:
-        st.error("⚠️ No se encontró solución. Posibles causas:")
-        st.markdown("""
-        1. **Horarios imposibles:** Un paciente necesita estar a las 10:00 en un sitio muy lejano.
-        2. **Falta de vehículos:** Hay más camillas/sillas que ambulancias disponibles.
-        3. **Tiempo Máximo:** La restricción de no tener al paciente paseando es muy estricta.
-        """)
-
-# --- INTERFAZ DE CARGA ---
-st.markdown("---")
-uploaded_file = st.file_uploader("Cargar Archivo de Pacientes (Excel/PDF)", type=["xlsx", "pdf"])
-
-if uploaded_file and st.button("🚀 Calcular Rutas"):
-    if uploaded_file.name.endswith('.xlsx'):
-        df = pd.read_excel(uploaded_file)
-    else:
-        df = leer_pdf(uploaded_file)
-        
-    if df is not None:
-        # Normalizar columnas (quitar espacios, mayúsculas primera letra)
-        df.columns = [c.strip().title() for c in df.columns]
-        
-        req_cols = ["Paciente", "Recogida", "Destino", "Tipo"]
-        if not all(col in df.columns for col in req_cols):
-            st.error(f"Faltan columnas obligatorias. Tu archivo debe tener: {req_cols}")
-        else:
+        try:
+            df = pd.read_excel(uploaded_file)
             st.success("Archivo cargado correctamente.")
             st.dataframe(df.head())
+            
+            # Validar columnas
+            required_cols = ['Paciente', 'Direccion', 'Hora_Min', 'Hora_Max']
+            if not all(col in df.columns for col in required_cols):
+                st.error(f"Faltan columnas requeridas: {required_cols}")
+                st.stop()
+                
+            if st.button("🚀 Optimizar Rutas"):
+                
+                with st.status("Procesando...", expanded=True) as status:
+                    
+                    # 1. Geocodificación
+                    status.write("📍 Geocodificando direcciones (esto puede tardar unos segundos)...")
+                    locations = []
+                    # El índice 0 es el depósito
+                    depot_coords = geocode_address(depot_address)
+                    if not depot_coords:
+                        st.error("No se pudo localizar el depósito.")
+                        st.stop()
+                    
+                    locations.append(depot_coords)
+                    valid_patients = []
+                    
+                    progress_bar = st.progress(0)
+                    
+                    for idx, row in df.iterrows():
+                        coords = geocode_address(row['Direccion'])
+                        if coords:
+                            locations.append(coords)
+                            valid_patients.append(row)
+                        else:
+                            st.warning(f"No se pudo localizar: {row['Direccion']}")
+                        progress_bar.progress((idx + 1) / len(df))
+                    
+                    if len(locations) < 2:
+                        st.error("No hay suficientes destinos válidos para optimizar.")
+                        st.stop()
 
-            calcular(df.to_dict('records'), FLOTA_CONF)
+                    # 2. Preparar Ventanas de Tiempo (convertir HH:MM a minutos desde inicio jornada)
+                    # El depósito siempre está abierto (0 a max jornada)
+                    time_windows = [(0, shift_duration * 60)] 
+                    
+                    start_minutes_base = start_hour.hour * 60 + start_hour.minute
+                    
+                    for p in valid_patients:
+                        try:
+                            t_min = datetime.strptime(str(p['Hora_Min']), "%H:%M:%S") if len(str(p['Hora_Min'])) > 5 else datetime.strptime(str(p['Hora_Min']), "%H:%M")
+                            t_max = datetime.strptime(str(p['Hora_Max']), "%H:%M:%S") if len(str(p['Hora_Max'])) > 5 else datetime.strptime(str(p['Hora_Max']), "%H:%M")
+                            
+                            m_min = t_min.hour * 60 + t_min.minute - start_minutes_base
+                            m_max = t_max.hour * 60 + t_max.minute - start_minutes_base
+                            
+                            # Normalizar si es antes de la hora de inicio (ej. citas día siguiente o error)
+                            if m_min < 0: m_min = 0
+                            if m_max < 0: m_max = shift_duration * 60
+                            
+                            time_windows.append((int(m_min), int(m_max)))
+                        except Exception as e:
+                            # Si falla el parseo, ventana amplia
+                            time_windows.append((0, shift_duration * 60))
 
+                    # 3. Resolver
+                    status.write("🧮 Calculando matriz de distancias y optimizando...")
+                    
+                    data = create_data_model(
+                        locations, 
+                        vehicle_capacities, 
+                        time_windows, 
+                        len(vehicle_capacities)
+                    )
+                    
+                    solution, routing, manager = solve_vrp(data, service_time, shift_duration * 60)
+                    
+                    status.update(label="¡Optimización completada!", state="complete", expanded=False)
 
+                # --- Resultados ---
+                if solution:
+                    st.header("4. Hoja de Ruta Generada")
+                    
+                    route_data = []
+                    time_dim = routing.GetDimensionOrDie('Time')
+                    
+                    for vehicle_id in range(data['num_vehicles']):
+                        index = routing.Start(vehicle_id)
+                        route_name = f"Vehículo {vehicle_id + 1} ({vehicle_names[vehicle_id]})"
+                        
+                        # Comprobar si el vehículo se usa (si va directo al final, no se usa)
+                        if routing.IsEnd(solution.Value(routing.NextVar(index))):
+                            continue
+                            
+                        stop_num = 1
+                        while not routing.IsEnd(index):
+                            node_index = manager.IndexToNode(index)
+                            time_var = time_dim.CumulVar(index)
+                            arrival_min = solution.Min(time_var)
+                            
+                            # Calcular hora real
+                            real_arrival_time = (datetime.combine(datetime.today(), start_hour) + timedelta(minutes=arrival_min)).strftime("%H:%M")
+                            
+                            # Datos del lugar
+                            if node_index == 0:
+                                loc_name = "DEPÓSITO (Salida)"
+                                address = depot_address
+                                patient_name = "-"
+                            else:
+                                # -1 porque valid_patients no tiene el depósito
+                                pat = valid_patients[node_index - 1] 
+                                loc_name = f"Parada {stop_num}"
+                                address = pat['Direccion']
+                                patient_name = pat['Paciente']
+                                stop_num += 1
+                            
+                            route_data.append({
+                                "Vehículo": route_name,
+                                "Orden": stop_num if node_index !=0 else 0,
+                                "Tipo Lugar": "Base" if node_index == 0 else "Paciente",
+                                "Nombre": patient_name,
+                                "Dirección": address,
+                                "Hora Estimada Llegada": real_arrival_time,
+                                "Minutos Acumulados": arrival_min
+                            })
+                            
+                            index = solution.Value(routing.NextVar(index))
+                        
+                        # Añadir retorno al depósito
+                        node_index = manager.IndexToNode(index)
+                        time_var = time_dim.CumulVar(index)
+                        arrival_min = solution.Min(time_var)
+                        real_arrival_time = (datetime.combine(datetime.today(), start_hour) + timedelta(minutes=arrival_min)).strftime("%H:%M")
+                        
+                        route_data.append({
+                            "Vehículo": route_name,
+                            "Orden": stop_num,
+                            "Tipo Lugar": "DEPÓSITO (Fin)",
+                            "Nombre": "-",
+                            "Dirección": depot_address,
+                            "Hora Estimada Llegada": real_arrival_time,
+                            "Minutos Acumulados": arrival_min
+                        })
 
+                    # Visualización
+                    df_results = pd.DataFrame(route_data)
+                    st.dataframe(df_results)
+                    
+                    # Mapa simple de rutas
+                    st.map(pd.DataFrame(locations, columns=['lat', 'lon']))
 
+                    # Exportar CSV
+                    csv = df_results.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        "📥 Descargar Hoja de Ruta (CSV)",
+                        csv,
+                        "hoja_de_ruta.csv",
+                        "text/csv",
+                        key='download-csv'
+                    )
+                    
+                else:
+                    st.error("No se encontró solución factible. Intenta aumentar la flota o relajar las ventanas horarias.")
 
+        except Exception as e:
+            st.error(f"Ocurrió un error al procesar el archivo: {e}")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+if __name__ == "__main__":
+    main()
