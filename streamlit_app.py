@@ -240,7 +240,7 @@ def main():
             st.dataframe(df.head())
             
             # Validar columnas
-            required_cols = ['Paciente']
+            required_cols = ['Paciente', 'Direccion', 'Hora_Min', 'Hora_Max']
             if not all(col in df.columns for col in required_cols):
                 st.error(f"Faltan columnas requeridas: {required_cols}")
                 st.stop()
