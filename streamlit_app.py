@@ -146,9 +146,9 @@ def calcular(df, flota_config):
 
                 # Guardar direcciones originales
                 direcciones_pacientes.extend([
-                    (r.get("Recogida", ""), r.get("Destino", "")),
-                    (r.get("Recogida", ""), r.get("Destino", ""))
-                            ])
+                                    (r.get("Recogida", ""), r.get("Destino", "")),
+                                    (r.get("Recogida", ""), r.get("Destino", ""))
+                                        ])
             
             # Mapa (Verde=Origen, Rojo=Destino)
             map_d.extend([
@@ -442,6 +442,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
