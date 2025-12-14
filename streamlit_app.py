@@ -221,14 +221,15 @@ def main():
     # Template para descargar
     example_data = {
         'Paciente': ['Juan Pérez', 'Ana Gómez', 'Luis Royo'],
-        'Recogida': ['Calle Mayor, Almazán', 'Plaza Mayor, Burgo de Osma', 'Calle Real, Ólvega'],
-        'Destino': ['Hospital Santa Bárbara, Soria', 'Centro Salud Almazán', 'Hospital Santa Bárbara, Soria'],
-        'Tipo': ['Silla', 'Camilla', 'Sentado'],
-        'Hora': ['09:00', '10:30', '11:00']
-        }
-    st.info("👉 Por favor sube un archivo Excel. Debe tener columnas: 'Paciente', 'Recogida', 'Destino', 'Tipo', 'Hora'.")
-    df_template = pd.DataFrame(example_data)
-    st.download_button("Descargar Plantilla Ejemplo", 
+        'Direccion': ['Calle Gran Vía 10, Madrid', 'Paseo de la Castellana 50, Madrid', 'Calle de Alcalá 200, Madrid'],
+        'Hora_Min': ['09:00', '09:30', '11:00'],
+        'Hora_Max': ['11:00', '12:00', '14:00']
+    }
+    
+    if not uploaded_file:
+        st.info("👋 Por favor sube un archivo Excel. Debe tener columnas: 'Paciente', 'Direccion', 'Hora_Min', 'Hora_Max'.")
+        df_template = pd.DataFrame(example_data)
+        st.download_button("Descargar Plantilla Ejemplo", 
                            data=df_template.to_csv(index=False).encode('utf-8'),
                            file_name="plantilla_ambulancias.csv",
                            mime='text/csv')
@@ -239,7 +240,7 @@ def main():
             st.dataframe(df.head())
             
             # Validar columnas
-            required_cols = ['Paciente', 'Recogida', 'Destino', 'Tipo']
+            required_cols = ['Paciente', 'Direccion', 'Hora_Min', 'Hora_Max']
             if not all(col in df.columns for col in required_cols):
                 st.error(f"Faltan columnas requeridas: {required_cols}")
                 st.stop()
@@ -402,9 +403,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
