@@ -221,8 +221,6 @@ def main():
     # Template para descargar
     example_data = {
         'Paciente': ['Juan Pérez', 'Ana Gómez', 'Luis Royo'],
-            example_data = {
-        'Paciente': ['Juan Pérez', 'Ana Gómez', 'Luis Royo'],
         'Recogida': ['Calle Mayor, Almazán', 'Plaza Mayor, Burgo de Osma', 'Calle Real, Ólvega'],
         'Destino': ['Hospital Santa Bárbara, Soria', 'Centro Salud Almazán', 'Hospital Santa Bárbara, Soria'],
         'Tipo': ['Silla', 'Camilla', 'Sentado'],
@@ -403,4 +401,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
