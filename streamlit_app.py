@@ -151,7 +151,7 @@ def calcular(df, flota_config):
         ])
             
             # Mapa (Verde=Origen, Rojo=Destino)
-            map_d.extend([
+                    map_d.extend([
                 {"lat":orig[0], "lon":orig[1], "color":"#00FF00"},
                 {"lat":dest[0], "lon":dest[1], "color":"#FF0000"}
             ])
@@ -442,6 +442,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
