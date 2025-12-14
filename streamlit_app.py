@@ -225,7 +225,7 @@ def main():
         'Destino': ['Hospital Santa Bárbara, Soria', 'Centro Salud Almazán', 'Hospital Santa Bárbara, Soria'],
         'Tipo': ['Silla', 'Camilla', 'Sentado'],
         'Hora': ['09:00', '10:30', '11:00']
-    }ot uploaded_file:
+        }
     st.info("👉 Por favor sube un archivo Excel. Debe tener columnas: 'Paciente', 'Recogida', 'Destino', 'Tipo', 'Hora'.")        df_template = pd.DataFrame(example_data)
         st.download_button("Descargar Plantilla Ejemplo", 
                            data=df_template.to_csv(index=False).encode('utf-8'),
@@ -401,5 +401,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
