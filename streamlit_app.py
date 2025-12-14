@@ -112,7 +112,8 @@ if uploaded_file is not None:
 st.divider()
 
 # Opción 2: Generar datos aleatorios
-st.subheader("🔄 O Generar Servicios Aleatorios (Prueba)")if st.button("🔄 Generar 100 Servicios"):
+st.subheader("🔄 O Generar Servicios Aleatorios (Prueba)"
+            )if st.button("🔄 Generar 100 Servicios"):
 
     df = generar_datos()
     st.session_state['df_servicios'] = df
@@ -208,5 +209,6 @@ if 'df_resultado' in st.session_state:
         file_name="rutas_ambulancias.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
