@@ -7,6 +7,7 @@ from geopy.distance import geodesic
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 
+# Aplicación de gestión de rutas optimizadas
 # --- CONFIGURACIÓN VISUAL ---
 st.set_page_config(page_title="Gestión de Rutas Sanitarias Pro", layout="wide", page_icon="🚑")
 st.markdown("""<style>.stButton>button { background-color: #d32f2f; color: white; width: 100%; }</style>""", unsafe_allow_html=True)
@@ -441,6 +442,7 @@ if uploaded_file and st.button("🚀 Calcular Rutas"):
             st.dataframe(df.head())
 
             calcular(df.to_dict('records'), FLOTA_CONF)
+
 
 
 
