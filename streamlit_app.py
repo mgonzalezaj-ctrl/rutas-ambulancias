@@ -227,7 +227,7 @@ def main():
         'Hora': ['09:00', '10:30', '11:00']
         }
     st.info("👉 Por favor sube un archivo Excel. Debe tener columnas: 'Paciente', 'Recogida', 'Destino', 'Tipo', 'Hora'.")
-        df_template = pd.DataFrame(example_data)
+    df_template = pd.DataFrame(example_data)
         st.download_button("Descargar Plantilla Ejemplo", 
                            data=df_template.to_csv(index=False).encode('utf-8'),
                            file_name="plantilla_ambulancias.csv",
@@ -402,6 +402,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
