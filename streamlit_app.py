@@ -137,11 +137,11 @@ if 'df_servicios' in st.session_state:
         for index, row in df_proc.iterrows():
             # Convertir hora string a datetime completo para comparar
             hora_cita_str = row['Hora_Cita']
-            # Intentar parsear con segundos primero, luego sin segundos
+                # Intentar parsear con segundos primero, luego sin segundos
                 try:
                     hora_cita_dt = datetime.strptime(hora_cita_str, "%H:%M:%S")
                 except ValueError:
-                    hora_cita_dt = datetime.strptime(hora_cita_str, "%H:%M")
+                    hora_cita_dt = datetime.strptime(hora_cita_str, "%H:%M"):%M")
             
             # Buscar candidatos (vehículos que soporten el tipo de paciente)
             candidatos = [v for v in flota if puede_llevar(v['tipo'], row['Tipo'])]
@@ -214,6 +214,7 @@ if 'df_resultado' in st.session_state:
         file_name="rutas_ambulancias.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
 
