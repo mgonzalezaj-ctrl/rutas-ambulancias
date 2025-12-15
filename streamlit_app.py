@@ -141,7 +141,7 @@ if 'df_servicios' in st.session_state:
                 try:
                     hora_cita_dt = datetime.strptime(hora_cita_str, "%H:%M:%S")
                 except ValueError:
-                    hora_cita_dt = datetime.strptime(hora_cita_str, "%H:%M"):%M")
+                    hora_cita_dt = datetime.strptime(hora_cita_str, "%H:%M"
             
             # Buscar candidatos (vehículos que soporten el tipo de paciente)
             candidatos = [v for v in flota if puede_llevar(v['tipo'], row['Tipo'])]
@@ -214,6 +214,7 @@ if 'df_resultado' in st.session_state:
         file_name="rutas_ambulancias.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
 
