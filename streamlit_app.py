@@ -248,10 +248,7 @@ if uploaded_file:
         st.success(f"✅ {len(df)} servicios cargados")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-        else:
-    if 'df_servicios' in st.session_state:
-        del st.session_state['df_servicios']
-
+        
 if 'df_servicios' in st.session_state:
     df = st.session_state['df_servicios']
     st.dataframe(df.head(10), use_container_width=True)
@@ -304,5 +301,6 @@ if 'df_resultado' in st.session_state:
         file_name="rutas_optimizadas.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
