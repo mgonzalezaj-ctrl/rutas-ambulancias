@@ -141,7 +141,7 @@ def optimizar_rutas_vrptw(df_servicios, flota):
         hora_cita_str = row['Hora_Cita']
         try:
             hora_cita_dt = datetime.strptime(hora_cita_str, "%H:%M:%S")
-        except ValueError:
+        except Exception:
             hora_cita_dt = datetime.strptime(hora_cita_str, "%H:%M")
         
         # Calcular ventana de tiempo
@@ -301,6 +301,7 @@ if 'df_resultado' in st.session_state:
         file_name="rutas_optimizadas.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
 
