@@ -140,11 +140,10 @@ def optimizar_rutas_vrptw(df_servicios, flota):
         # Parsear hora de cita
         hora_cita_str = row['Hora_Cita']
             # Parsear hora de manera robusta
-            hora_dt = pd.to_datetime(hora_cita_str, format='mixed', errors='coerce')
-            if pd.isna(hora_dt):
-                hora_dt = pd.to_datetime(f"2000-01-01 {hora_cita_str}", errors='coerce')
-            hora_cita_dt = hora_dt        
-        # Calcular ventana de tiempo
+        hora_dt = pd.to_datetime(hora_cita_str, format='mixed', errors='coerce')
+        if pd.isna(hora_dt):
+            hora_dt = pd.to_datetime(f"2000-01-01 {hora_cita_str}", errors='coerce')
+        hora_cita_dt = hora_dt        # Calcular ventana de tiempo
         ventana_inicio = hora_cita_dt - timedelta(minutes=MARGEN_TIEMPO)
         ventana_fin = hora_cita_dt + timedelta(minutes=MARGEN_TIEMPO)
         
@@ -319,6 +318,7 @@ if 'df_resultado' in st.session_state:
         file_name="rutas_optimizadas.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
 
