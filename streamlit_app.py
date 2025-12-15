@@ -234,28 +234,6 @@ def optimizar_rutas_vrptw(df_servicios, flota):
     return pd.DataFrame(resultados), flota
 
 # ==========================================
-# GENERADOR DE DATOS ALEATORIOS
-# ==========================================
-def generar_datos_aleatorios(n=100):
-    data = []
-    start_time = datetime.strptime("08:00", "%H:%M")
-    for i in range(1, n + 1):
-        min_offset = random.randint(0, 480)
-        hora_cita = start_time + timedelta(minutes=min_offset)
-        row = {
-            "ID_Servicio": i,
-            "Hora_Cita": hora_cita.strftime("%H:%M"),
-            "Paciente": f"Paciente {i}",
-            "Recogida": random.choice(UBICACIONES),
-            "Destino": random.choice(UBICACIONES),
-            "Tipo": random.choice(TIPOS)
-        }
-        while row['Recogida'] == row['Destino']:
-            row['Destino'] = random.choice(UBICACIONES)
-        data.append(row)
-    return pd.DataFrame(data).sort_values("Hora_Cita")
-
-# ==========================================
 # INTERFAZ
 # ==========================================
 st.subheader("📄 Paso 1: Cargar Servicios")
@@ -270,12 +248,6 @@ if uploaded_file:
         st.success(f"✅ {len(df)} servicios cargados")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-
-st.divider()
-if st.button("🔄 Generar 100 Servicios de Prueba"):
-    df = generar_datos_aleatorios()
-    st.session_state['df_servicios'] = df
-    st.success("✅ Datos generados")
 
 if 'df_servicios' in st.session_state:
     df = st.session_state['df_servicios']
@@ -329,3 +301,4 @@ if 'df_resultado' in st.session_state:
         file_name="rutas_optimizadas.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
