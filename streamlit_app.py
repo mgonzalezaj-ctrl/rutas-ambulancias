@@ -293,7 +293,7 @@ if uploaded_file:
                         st.success(f"✅ {len(df)} servicios cargados")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-                    st.exception(e)  # Mostrar el error completo para debug
+                    
 
 if 'df_servicios' in st.session_state:
     df = st.session_state['df_servicios']
@@ -479,6 +479,7 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
