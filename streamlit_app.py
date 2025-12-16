@@ -143,7 +143,11 @@ def optimizar_rutas_vrptw(df_servicios, flota):
     
     for index, row in df_servicios.iterrows():
         hora_cita_str = row['Hora_Cita']
-        hora_dt = pd.to_datetime(hora_cita_str, format='mixed', errors='coerce')
+        # Intentar parsear la hora de forma robusta
+        try:
+            hora_dt = pd.to_datetime(hora_cita_str, errors='coerce')
+        except:
+            hora_dt = pd.NaT
         if pd.isna(hora_dt):
             hora_dt = pd.to_datetime(f"2000-01-01 {hora_cita_str}", errors='coerce')
         hora_cita_dt = hora_dt
@@ -240,6 +244,14 @@ if uploaded_file:
         df = pd.read_excel(uploaded_file)
         if 'ID_Servicio' not in df.columns:
             df['ID_Servicio'] = range(1, len(df) + 1)
+                        
+            # Validar columnas requeridas
+            columnas_requeridas = ['Paciente', 'Hora_Cita', 'Recogida', 'Destino', 'Tipo']
+            columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
+            if columnas_faltantes:
+                st.error(f"❌ Faltan columnas requeridas: {', '.join(columnas_faltantes)}")
+                st.info("💡 El archivo debe contener: Paciente, Hora_Cita, Recogida, Destino, Tipo")
+            else:
         st.session_state['df_servicios'] = df
         st.success(f"✅ {len(df)} servicios cargados")
     except Exception as e:
@@ -429,3 +441,4 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
