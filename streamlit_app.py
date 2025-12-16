@@ -252,8 +252,8 @@ if uploaded_file:
                 st.error(f"❌ Faltan columnas requeridas: {', '.join(columnas_faltantes)}")
                 st.info("💡 El archivo debe contener: Paciente, Hora_Cita, Recogida, Destino, Tipo")
             else:
-        st.session_state['df_servicios'] = df
-        st.success(f"✅ {len(df)} servicios cargados")
+                        st.session_state['df_servicios'] = df
+                        st.success(f"✅ {len(df)} servicios cargados")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
 
@@ -441,4 +441,5 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
