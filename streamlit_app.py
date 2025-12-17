@@ -176,10 +176,10 @@ def optimizar_rutas_vrptw(df_servicios, flota):
     resultados = []
     hoy = datetime.today().date()
     
-    df_servicios = df_servicios.sort_values(['zona', 'Hora_Cita'])
+    df_servicios = df_servicios.sort_values(['zona', 'Hora Cita'])
     
     for index, row in df_servicios.iterrows():
-        hora_cita_str = row['Hora_Cita']
+        hora_cita_str = row['Hora Cita']
         # Intentar parsear la hora de forma robusta
         try:
             hora_dt = pd.to_datetime(hora_cita_str, errors='coerce')
@@ -226,7 +226,7 @@ def optimizar_rutas_vrptw(df_servicios, flota):
                 servicio_info = {
                     'Vehículo': mejor_vehiculo['id'],
                     'Conductor': mejor_vehiculo.get('conductor', 'N/A'),
-                    'Hora Cita': row['Hora_Cita'],
+                    'Hora Cita': row['Hora Cita'],
                     'Ventana Inicio': ventana_inicio.strftime("%H:%M"),
                     'Ventana Fin': ventana_fin.strftime("%H:%M"),
                     'Inicio Real': inicio_real.strftime("%H:%M"),
@@ -248,7 +248,7 @@ def optimizar_rutas_vrptw(df_servicios, flota):
                 resultados.append({
                     'Vehículo': 'SIN ASIGNAR - TIEMPO INSUFICIENTE',
                     'Conductor': 'N/A',
-                    'Hora Cita': row['Hora_Cita'],
+                    'Hora Cita': row['Hora Cita'],
                     'Paciente': row['Paciente'],
                     'Recogida': row['Recogida'],
                     'Destino': row['Destino'],
@@ -259,7 +259,7 @@ def optimizar_rutas_vrptw(df_servicios, flota):
             resultados.append({
                 'Vehículo': 'SIN FLOTA DISPONIBLE',
                 'Conductor': 'N/A',
-                'Hora Cita': row['Hora_Cita'],
+                'Hora Cita': row['Hora Cita'],
                 'Paciente': row['Paciente'],
                 'Recogida': row['Recogida'],
                 'Destino': row['Destino'],
@@ -283,7 +283,7 @@ if uploaded_file:
             df['ID_Servicio'] = range(1, len(df) + 1)
                         
             # Validar columnas requeridas
-            columnas_requeridas = ['Paciente', 'Hora_Cita', 'Recogida', 'Destino', 'Tipo']
+            columnas_requeridas = ['Paciente', 'Hora Cita', 'Recogida', 'Destino', 'Tipo']
             columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
             if columnas_faltantes:
                 st.error(f"❌ Faltan columnas requeridas: {', '.join(columnas_faltantes)}")
@@ -479,6 +479,7 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
