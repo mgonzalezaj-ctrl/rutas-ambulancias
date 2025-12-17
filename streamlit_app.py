@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, time
 import io
 from collections import defaultdict
 import math
+import pdfplumber
 
 # ==========================================
 # CONFIGURACIÓN
@@ -275,10 +276,27 @@ def optimizar_rutas_vrptw(df_servicios, flota):
 # ==========================================
 
 st.subheader("📄 Paso 1: Cargar Servicios")
-uploaded_file = st.file_uploader("Sube tu archivo Excel con servicios", type=['xlsx', 'xls'])
+uploaded_file = st.file_uploader("Sube tu archivo Excel o PDF con servicios", type=['xlsx', 'xls, 'pdf''])
 
 if uploaded_file:
     try:
+                # Detectar tipo de archivo
+        file_extension = uploaded_file.name.split('.')[-1].lower()
+        
+        if file_extension == 'pdf':
+            # Procesar PDF
+            with pdfplumber.open(uploaded_file) as pdf:
+                # Extraer tabla de la primera página
+                first_page = pdf.pages[0]
+                table = first_page.extract_table()
+                if table:
+                    # Convertir tabla a DataFrame
+                    df = pd.DataFrame(table[1:], columns=table[0])
+                else:
+                    st.error("❌ No se encontraron tablas en el PDF")
+                    df = None
+        else:
+            # Procesar Excel
         df = pd.read_excel(uploaded_file)
         if 'ID_Servicio' not in df.columns:
             df['ID_Servicio'] = range(1, len(df) + 1)
@@ -480,6 +498,7 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
