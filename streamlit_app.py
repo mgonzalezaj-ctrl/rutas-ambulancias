@@ -275,7 +275,7 @@ def optimizar_rutas_vrptw(df_servicios, flota):
 # ==========================================
 
 st.subheader("📄 Paso 1: Cargar Servicios")
-uploaded_file = st.file_uploader("Sube tu archivo Excel o PDF con servicios", type=['xlsx', 'xls, 'pdf''])
+uploaded_file = st.file_uploader("Sube tu archivo Excel o PDF con servicios", type=['xlsx', 'xls', 'pdf'])
 
 if uploaded_file:
     try:
@@ -497,6 +497,7 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
