@@ -83,9 +83,8 @@ def calcular_hora_entrada(servicios_asignados):
     if not servicios_asignados:
         return "08:00"
     primer_servicio = min(servicios_asignados, key=lambda x: datetime.strptime(x['Hora Cita'], "%H:%M"))
-        hora_cita = pd.to_datetime(primer_servicio['Hora Cita'], format='%H:%M:%S', errors='coerce')
-    if pd.isna(hora_cita):
-        hora_cita = pd.to_datetime(primer_servicio['Hora Cita'], format='%H:%M', errors='coerce')
+    hora_cita = datetime.strptime(primer_servicio['Hora Cita'], "%H:%M")
+    tiempo_prep = primer_servicio.get('Tiempo Viaje', 15) + 15
     hora_entrada = hora_cita - timedelta(minutes=tiempo_prep)
     return hora_entrada.strftime("%H:%M")
 
@@ -498,6 +497,7 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
