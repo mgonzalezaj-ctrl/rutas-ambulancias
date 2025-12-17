@@ -296,9 +296,9 @@ if uploaded_file:
                     df = None
         else:
             # Procesar Excel
-        df = pd.read_excel(uploaded_file)
-        if 'ID_Servicio' not in df.columns:
-            df['ID_Servicio'] = range(1, len(df) + 1)
+            df = pd.read_excel(uploaded_file)
+            if 'ID_Servicio' not in df.columns:
+                df['ID_Servicio'] = range(1, len(df) + 1)
                         
             # Validar columnas requeridas
             columnas_requeridas = ['Paciente', 'Hora Cita', 'Recogida', 'Destino', 'Tipo']
@@ -497,6 +497,7 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
