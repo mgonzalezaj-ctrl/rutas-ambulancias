@@ -318,12 +318,12 @@ if 'df_servicios' in st.session_state:
                 del st.session_state['flota']
             st.rerun()
     
-    st.subheader("🚀 Paso 2: Optimizar Rutas")
+    st.subheader("🚀 Paso 2: Calcular Rutas")
     
     if not st.session_state['vehiculos_personalizados']:
         st.warning("⚠️ No hay vehículos en la flota. Añade vehículos en el panel lateral.")
     else:
-        if st.button("🧠 Optimizar con IA (VRPTW + Clustering)"):
+        if st.button("🚀 Calcular Rutas"):
             with st.spinner("🔄 Aplicando clustering geográfico..."):
                 df = clustering_geografico(df, n_clusters=3)
             
@@ -479,6 +479,7 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
