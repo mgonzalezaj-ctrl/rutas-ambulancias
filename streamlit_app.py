@@ -81,12 +81,25 @@ def puede_llevar(vehiculo_tipo, paciente_tipo):
 def calcular_hora_entrada(servicios_asignados):
     if not servicios_asignados:
         return "08:00"
-    primer_servicio = min(servicios_asignados, key=lambda x: datetime.strptime(x['Hora Cita'], "%H:%M"))
-    hora_cita = datetime.strptime(primer_servicio['Hora Cita'], "%H:%M")
+    
+    # Función auxiliar para parsear hora de forma robusta
+    def parsear_hora(hora_str):
+        try:
+            # Intentar parsear como string %H:%M
+            return datetime.strptime(str(hora_str), "%H:%M")
+        except:
+            try:
+                # Intentar convertir a pandas datetime y extraer hora
+                return pd.to_datetime(hora_str)
+            except:
+                # Si falla todo, retornar 08:00
+                return datetime.strptime("08:00", "%H:%M")
+    
+    primer_servicio = min(servicios_asignados, key=lambda x: parsear_hora(x['Hora Cita']))
+    hora_cita = parsear_hora(primer_servicio['Hora Cita'])
     tiempo_prep = primer_servicio.get('Tiempo Viaje', 15) + 15
     hora_entrada = hora_cita - timedelta(minutes=tiempo_prep)
     return hora_entrada.strftime("%H:%M")
-
 # ==========================================
 # GESTIÓN DE FLOTA PERSONALIZADA
 # ==========================================
@@ -496,6 +509,7 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
