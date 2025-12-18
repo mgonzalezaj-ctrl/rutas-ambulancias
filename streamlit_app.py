@@ -98,11 +98,11 @@ if 'vehiculos_personalizados' not in st.session_state:
 st.sidebar.header("🚗 Gestión de Flota Personalizada")
 
 # Botón para cargar flota automática
-if st.sidebar.button("🚑 Cargar Flota Automática (28 vehículos)"):
+if st.sidebar.button("🚑 Cargar Flota Automática (35 vehículos)"):
     st.session_state['vehiculos_personalizados'] = []
     
     # 22 vehículos Tipo B (1 camilla + 1 silla + 5 sentados)
-    for i in range(1, 23):
+    for i in range(1, 28):
         st.session_state['vehiculos_personalizados'].append({
             "id": f"B-{i:03d}",
             "tipo": "B",
@@ -114,7 +114,7 @@ if st.sidebar.button("🚑 Cargar Flota Automática (28 vehículos)"):
         })
     
     # 6 vehículos Tipo A (2-3 sillas + 4 sentados)
-    for i in range(1, 7):
+    for i in range(1, 9):
         st.session_state['vehiculos_personalizados'].append({
             "id": f"A-{i:03d}",
             "tipo": "A",
@@ -125,7 +125,7 @@ if st.sidebar.button("🚑 Cargar Flota Automática (28 vehículos)"):
             "tiempo_trabajado": 0
         })
     
-    st.sidebar.success("✅ Flota automática cargada: 22 tipo B + 6 tipo A = 28 vehículos")
+    st.sidebar.success("✅ Flota automática cargada: 27 tipo B + 8 tipo A = 35 vehículos")
     st.rerun()
     
 # Botón para limpiar toda la flota
@@ -497,6 +497,7 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
