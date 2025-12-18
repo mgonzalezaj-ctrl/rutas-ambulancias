@@ -70,8 +70,7 @@ def clustering_geografico(df_servicios, n_clusters=None):
     df_servicios['coord_x'] = df_servicios['Recogida'].map(lambda x: coords.get(x, (0,0))[0])
     df_servicios['coord_y'] = df_servicios['Recogida'].map(lambda x: coords.get(x, (0,0))[1])
     df_servicios['zona'] = df_servicios['Recogida'].map(
-        lambda x: UBICACIONES.index(x) % (n_clusters if n_clusters else 3)
-    )
+        lambda x: hash(x) % (n_clusters if n_clusters else 3)    )
     return df_servicios
 
 def puede_llevar(vehiculo_tipo, paciente_tipo):
@@ -497,6 +496,7 @@ st.markdown("""
 Optimizado con IA para máxima eficiencia
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
