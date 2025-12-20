@@ -306,8 +306,7 @@ if 'df_servicios' in :
     # Botón para calcular rutas (con auto-carga de vehículos si es necesario)
     if st.button("🚀 CALCULAR RUTAS CON OPTIMIZACIÓN"):
                 # Si no hay vehículos, crear automáticamente según servicios
-        if not ['vehiculos_personalizados']:
-            st.info("🤖 Calculando vehículos necesarios automáticamente...")
+        if not st.session_state['vehiculos_personalizados']:            st.info("🤖 Calculando vehículos necesarios automáticamente...")
             # Estimación simple: 1 vehículo por cada 6 servicios, mínimo 10
             num_servicios = len(['df_servicios'])
             num_vehiculos = max(10, (num_servicios // 6) + 1)
@@ -482,6 +481,7 @@ st.markdown("""
 Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
