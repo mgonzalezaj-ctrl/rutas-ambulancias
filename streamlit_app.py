@@ -196,7 +196,7 @@ st.sidebar.header("🚗 Gestión de Flota")
                 st.session_state['vehiculos_personalizados'] = []
     
     for i in range(1, 28):
-        st.session_state['vehiculos_personalizados'].append({
+        ession_state['vehiculos_personalizados'].append({
             "id": f"B-{i:03d}",
             "tipo": "B",
             "conductor": f"Conductor B-{i}",
@@ -482,5 +482,6 @@ st.markdown("""
 Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
+
 
 
