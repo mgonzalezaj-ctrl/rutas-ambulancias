@@ -192,8 +192,8 @@ if 'vehiculos_personalizados' not in st.session_state:
 
 st.sidebar.header("🚗 Gestión de Flota")
 
-if st.sidebar.button("🚑 Cargar Flota Automática (35 vehículos)"):
-    st.session_state['vehiculos_personalizados'] = []
+    if st.sidebar.button("🚑 Pre-Cargar Flota Manual (35 vehículos)"):    st
+                st.session_state['vehiculos_personalizados'] = []
     
     for i in range(1, 28):
         st.session_state['vehiculos_personalizados'].append({
@@ -303,10 +303,38 @@ if 'df_servicios' in st.session_state:
     
     st.subheader("🚀 Paso 2: Calcular Rutas Optimizadas")
     
-    if not st.session_state['vehiculos_personalizados']:
-        st.warning("⚠️ No hay vehículos. Añade vehículos en el panel lateral.")
-    else:
-        if st.button("🚀 CALCULAR RUTAS CON OPTIMIZACIÓN"):
+    # Botón para calcular rutas (con auto-carga de vehículos si es necesario)
+    if st.button("🚀 CALCULAR RUTAS CON OPTIMIZACIÓN"):
+                # Si no hay vehículos, crear automáticamente según servicios
+        if not st.session_state['vehiculos_personalizados']:
+            st.info("🤖 Calculando vehículos necesarios automáticamente...")
+            # Estimación simple: 1 vehículo por cada 6 servicios, mínimo 10
+            num_servicios = len(st.session_state['df_servicios'])
+            num_vehiculos = max(10, (num_servicios // 6) + 1)
+            
+            # Crear 70% tipo B, 30% tipo A
+            num_b = int(num_vehiculos * 0.7)
+            num_a = num_vehiculos - num_b
+            
+            st.session_state['vehiculos_personalizados'] = []
+            for i in range(1, num_b + 1):
+                st.session_state['vehiculos_personalizados'].append({
+                    "id": f"B-{i:03d}",
+                    "tipo": "B",
+                    "conductor": f"Conductor B-{i}",
+                    "matricula": f"{1000+i}BBB"
+                })
+            
+            for i in range(1, num_a + 1):
+                st.session_state['vehiculos_personalizados'].append({
+                    "id": f"A-{i:03d}",
+                    "tipo": "A",
+                    "conductor": f"Conductor A-{i}",
+                    "matricula": f"{2000+i}AAA"
+                })
+            
+            st.success(f"✅ Flota creada automáticamente: {num_b} tipo B + {num_a} tipo A = {num_vehiculos} total")
+        
             with st.spinner("🔄 Optimizando con múltiples servicios por conductor..."):
                 flota = [v.copy() for v in st.session_state['vehiculos_personalizados']]
                 
@@ -454,3 +482,4 @@ st.markdown("""
 Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
+
