@@ -192,7 +192,7 @@ if 'vehiculos_personalizados' not in st.session_state:
 
 st.sidebar.header("🚗 Gestión de Flota")
 
-    if st.sidebar.button("🚑 Pre-Cargar Flota Manual (35 vehículos)"):    st
+    if st.sidebar.button("🚑 Pre-Cargar Flota Manual (35 vehículos)"):  
                 st.session_state['vehiculos_personalizados'] = []
     
     for i in range(1, 28):
@@ -482,4 +482,5 @@ st.markdown("""
 Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
+
 
