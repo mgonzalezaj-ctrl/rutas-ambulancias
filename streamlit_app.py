@@ -187,24 +187,24 @@ def optimizar_rutas_multiple_servicios(df_servicios, flota):
 # GESTIÓN DE FLOTA (SIDEBAR)
 # ==========================================
 
-if 'vehiculos_personalizados' not in :
-    ['vehiculos_personalizados'] = []
+if 'vehiculos_personalizados' not in st.session_state:
+    st.session_state['vehiculos_personalizados'] = []
 
 st.sidebar.header("🚗 Gestión de Flota")
 
-    if st.sidebar.button("🚑 Pre-Cargar Flota Manual (35 vehículos)"):  
-                ['vehiculos_personalizados'] = []
+if st.sidebar.button("🚑 Cargar Flota Automática (35 vehículos)"):
+    st.session_state['vehiculos_personalizados'] = []
     
     for i in range(1, 28):
         st.session_state['vehiculos_personalizados'].append({
             "id": f"B-{i:03d}",
             "tipo": "B",
             "conductor": f"Conductor B-{i}",
-            st.s"matricula": f"{1000+i}BBB"
+            "matricula": f"{1000+i}BBB"
         })
     
     for i in range(1, 9):
-        ['vehiculos_personalizados'].append({
+        st.session_state['vehiculos_personalizados'].append({
             "id": f"A-{i:03d}",
             "tipo": "A",
             "conductor": f"Conductor A-{i}",
@@ -215,7 +215,7 @@ st.sidebar.header("🚗 Gestión de Flota")
     st.rerun()
 
 if st.sidebar.button("🗑️ Limpiar Flota"):
-    ['vehiculos_personalizados'] = []
+    st.session_state['vehiculos_personalizados'] = []
     st.sidebar.warning("⚠️ Flota limpiada")
     st.rerun()
 
@@ -228,7 +228,7 @@ with st.sidebar.expander("➕ Añadir Vehículo", expanded=False):
         
         if st.form_submit_button("✅ Añadir"):
             if nuevo_id and nuevo_conductor:
-                ['vehiculos_personalizados'].append({
+                st.session_state['vehiculos_personalizados'].append({
                     "id": nuevo_id,
                     "tipo": nuevo_tipo,
                     "conductor": nuevo_conductor,
@@ -236,14 +236,14 @@ with st.sidebar.expander("➕ Añadir Vehículo", expanded=False):
                 })
                 st.success(f"✅ {nuevo_id} añadido")
 
-if ['vehiculos_personalizados']:
-    st.sidebar.subheader(f"📋 Flota ({len(['vehiculos_personalizados'])} vehículos)")
-    for idx, v in enumerate(['vehiculos_personalizados']):
+if st.session_state['vehiculos_personalizados']:
+    st.sidebar.subheader(f"📋 Flota ({len(st.session_state['vehiculos_personalizados'])} vehículos)")
+    for idx, v in enumerate(st.session_state['vehiculos_personalizados']):
         with st.sidebar.expander(f"{v['id']} - {v['conductor']}"):
             st.write(f"**Tipo:** {v['tipo']}")
             st.write(f"**Matrícula:** {v['matricula']}")
             if st.button(f"🗑️ Eliminar", key=f"del_{idx}"):
-                ['vehiculos_personalizados'].pop(idx)
+                st.session_state['vehiculos_personalizados'].pop(idx)
                 st.rerun()
 
 # ==========================================
@@ -277,47 +277,44 @@ if uploaded_file:
                 st.error(f"❌ Faltan columnas: {', '.join(faltantes)}")
                 st.info("💡 Columnas requeridas: Paciente, Hora Cita, Recogida, Destino, Tipo")
             else:
-                ['df_servicios'] = df
+                st.session_state['df_servicios'] = df
                 st.success(f"✅ {len(df)} servicios cargados")
     
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
 
-if 'df_servicios' in :
-    df = ['df_servicios']
+if 'df_servicios' in st.session_state:
+    df = st.session_state['df_servicios']
     st.dataframe(df.head(10), use_container_width=True)
     
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🗑️ Limpiar Servicios"):
-            del ['df_servicios']
-            if 'df_resultado' in :
-                del ['df_resultado']
+            del st.session_state['df_servicios']
+            if 'df_resultado' in st.session_state:
+                del st.session_state['df_resultado']
             st.rerun()
     
     with col2:
         if st.button("🔄 Resetear Resultados"):
-            if 'df_resultado' in :
-                del ['df_resultado']
+            if 'df_resultado' in st.session_state:
+                del st.session_state['df_resultado']
             st.rerun()
     
     st.subheader("🚀 Paso 2: Calcular Rutas Optimizadas")
     
-    # Botón para calcular rutas (con auto-carga de vehículos si es necesario)
-    if st.button("🚀 CALCULAR RUTAS CON OPTIMIZACIÓN"):
-                # Si no hay vehículos, crear automáticamente según servicios
-        if not st.session_state['vehiculos_personalizados']:            st.info("🤖 Calculando vehículos necesarios automáticamente...")
-            # Estimación simple: 1 vehículo por cada 6 servicios, mínimo 10
-            num_servicios = len(['df_servicios'])
+if st.button("🚀 CALCULAR RUTAS CON OPTIMIZACIÓN"):
+        # Auto-crear vehículos si no existen
+        if not st.session_state['vehiculos_personalizados']:
+            st.info("🤖 Calculando vehículos necesarios automáticamente...")
+            num_servicios = len(st.session_state['df_servicios'])
             num_vehiculos = max(10, (num_servicios // 6) + 1)
-            
-            # Crear 70% tipo B, 30% tipo A
             num_b = int(num_vehiculos * 0.7)
             num_a = num_vehiculos - num_b
             
-            ['vehiculos_personalizados'] = []
+            st.session_state['vehiculos_personalizados'] = []
             for i in range(1, num_b + 1):
-                ['vehiculos_personalizados'].append({
+                st.session_state['vehiculos_personalizados'].append({
                     "id": f"B-{i:03d}",
                     "tipo": "B",
                     "conductor": f"Conductor B-{i}",
@@ -325,7 +322,7 @@ if 'df_servicios' in :
                 })
             
             for i in range(1, num_a + 1):
-                ['vehiculos_personalizados'].append({
+                st.session_state['vehiculos_personalizados'].append({
                     "id": f"A-{i:03d}",
                     "tipo": "A",
                     "conductor": f"Conductor A-{i}",
@@ -335,11 +332,11 @@ if 'df_servicios' in :
             st.success(f"✅ Flota creada automáticamente: {num_b} tipo B + {num_a} tipo A = {num_vehiculos} total")
         
             with st.spinner("🔄 Optimizando con múltiples servicios por conductor..."):
-                flota = [v.copy() for v in ['vehiculos_personalizados']]
+                flota = [v.copy() for v in st.session_state['vehiculos_personalizados']]
                 
                 df_resultado, flota = optimizar_rutas_multiple_servicios(df, flota)
-                ['df_resultado'] = df_resultado
-                ['flota'] = flota
+                st.session_state['df_resultado'] = df_resultado
+                st.session_state['flota'] = flota
                 
                 st.success("✅ ¡Optimización completada con éxito!")
 
@@ -347,9 +344,9 @@ if 'df_servicios' in :
 # DASHBOARD DE RESULTADOS
 # ==========================================
 
-if 'df_resultado' in :
-    df_res = ['df_resultado']
-    flota = ['flota']
+if 'df_resultado' in st.session_state:
+    df_res = st.session_state['df_resultado']
+    flota = st.session_state['flota']
     
     st.subheader("📊 Dashboard de Resultados OPTIMIZADOS")
     
@@ -481,8 +478,3 @@ st.markdown("""
 Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
-
-
-
-
-
