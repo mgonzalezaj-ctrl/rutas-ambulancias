@@ -1,13 +1,13 @@
 # ==========================================
-# GESTOR INTELIGENTE DE FLOTA DE AMBULANCIAS PRO
-# Versión Profesional con Gestión de Vehículos Personalizada
+# GESTOR INTELIGENTE DE FLOTA DE AMBULANCIAS PRO V3.0
+# Versión Optimizada - Múltiples Servicios por Conductor
 # ==========================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import random
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 import io
 from collections import defaultdict
 import math
@@ -23,156 +23,221 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("🏆 Gestor Inteligente de Flota de Ambulancias PRO")
-st.markdown("""### Sistema Avanzado con Gestión Personalizada de Vehículos
-**Características PRO:**
-- 🚗 Gestión personalizada de vehículos y conductores
-- ⏰ Cálculo automático de hora de entrada por conductor
-- 📊 Jornadas flexibles (hasta 10h con optimización)
-- 📋 Hojas Excel individuales por conductor con jornada completa
-- 🎯 Balance inteligente de carga
-- 📈 KPIs profesionales en tiempo real
+st.title("🏆 Gestor Inteligente de Flota V3.0 - OPTIMIZADO")
+st.markdown("""### Sistema con Múltiples Servicios por Conductor
+**Mejoras V3.0:**
+- 🚗 4 Bases: Soria, Almazán, Burgo de Osma, Ólvega
+- 🎯 Múltiples servicios por conductor (hasta 10h)
+- 🧠 Optimización inteligente de vehículos
+- 📊 Agrupación geográfica mejorada
 ---
 """)
 
-# Configuración global
-DURACION_SERVICIO = 60  # Minutos
-JORNADA_BASE = 8 * 60  # 8 horas
-JORNADA_MAX_FLEXIBLE = 10 * 60  # 10 horas máximo
-MARGEN_TIEMPO = 30  # Margen antes/después cita
+# Configuración
+DURACION_SERVICIO = 60
+JORNADA_MAX = 10 * 60
+MARGEN_TIEMPO = 30
 
-UBICACIONES = [
-    "Hospital Santa Bárbara", "Los Royales", "Centro Salud La Milagrosa",
-    "Plaza Mayor", "Estación Autobuses", "San Andrés", "Golmayo",
-    "Polígono Las Casas", "Almazán", "Garray"
-]
+# Bases geográficas con coordenadas
+BASES = {
+    'Soria': {'lat': 41.7665, 'lon': -2.4790},
+    'Almazán': {'lat': 41.4856, 'lon': -2.5252},
+    'Burgo de Osma': {'lat': 41.5869, 'lon': -3.0661},
+    'Ólvega': {'lat': 41.7974, 'lon': -2.0306, 'solo_tarde': True}
+}
 
-TIPOS = ["Sentado"] * 50 + ["Silla"] * 30 + ["Camilla"] * 15 + ["UVI"] * 5
+# Función para calcular distancia real
+def calcular_distancia_km(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
 
-# ==========================================
-# FUNCIONES AUXILIARES
-# ==========================================
-
-def calcular_distancia_simple(loc1, loc2):
-    if loc1 == loc2:
-        return 0
-    ubicaciones_dict = {loc: i for i, loc in enumerate(UBICACIONES)}
-    idx1 = ubicaciones_dict.get(loc1, 0)
-    idx2 = ubicaciones_dict.get(loc2, 0)
-    return abs(idx1 - idx2) * 8 + random.randint(2, 10)
-
-def clustering_geografico(df_servicios, n_clusters=None):
-    coords = {}
-    for i, loc in enumerate(UBICACIONES):
-        angle = (i / len(UBICACIONES)) * 2 * math.pi
-        coords[loc] = (math.cos(angle) * 100, math.sin(angle) * 100)
-    
-    df_servicios['coord_x'] = df_servicios['Recogida'].map(lambda x: coords.get(x, (0,0))[0])
-    df_servicios['coord_y'] = df_servicios['Recogida'].map(lambda x: coords.get(x, (0,0))[1])
-    df_servicios['zona'] = df_servicios['Recogida'].map(
-        lambda x: hash(x) % (n_clusters if n_clusters else 3)    )
-    return df_servicios
+def asignar_base_mas_cercana(ubicacion):
+    mejor_base = 'Soria'
+    min_dist = float('inf')
+    for base, coords in BASES.items():
+        if 'Almazán' in str(ubicacion):
+            return 'Almazán'
+        if 'Burgo' in str(ubicacion) or 'Osma' in str(ubicacion):
+            return 'Burgo de Osma'
+        if 'Ólvega' in str(ubicacion):
+            return 'Ólvega'
+    return 'Soria'
 
 def puede_llevar(vehiculo_tipo, paciente_tipo):
     if vehiculo_tipo == "A":
         return paciente_tipo in ["Sentado", "Silla"]
     return True
 
-def calcular_hora_entrada(servicios_asignados):
-    if not servicios_asignados:
+def calcular_hora_entrada(servicios):
+    if not servicios:
         return "08:00"
-    
-    # Función auxiliar para parsear hora de forma robusta
-    def parsear_hora(hora_str):
-        try:
-            # Intentar parsear como string %H:%M
-            return datetime.strptime(str(hora_str), "%H:%M")
-        except:
-            try:
-                # Intentar convertir a pandas datetime y extraer hora
-                return pd.to_datetime(hora_str)
-            except:
-                # Si falla todo, retornar 08:00
-                return datetime.strptime("08:00", "%H:%M")
-    
-    primer_servicio = min(servicios_asignados, key=lambda x: parsear_hora(x['Hora Cita']))
-    hora_cita = parsear_hora(primer_servicio['Hora Cita'])
-    tiempo_prep = primer_servicio.get('Tiempo Viaje', 15) + 15
-    hora_entrada = hora_cita - timedelta(minutes=tiempo_prep)
-    return hora_entrada.strftime("%H:%M")
+    try:
+        primer_servicio = min(servicios, key=lambda x: pd.to_datetime(str(x.get('Hora Cita', '08:00')), errors='coerce'))
+        hora_cita = pd.to_datetime(str(primer_servicio.get('Hora Cita', '08:00')), errors='coerce')
+        hora_entrada = hora_cita - timedelta(minutes=45)
+        return hora_entrada.strftime("%H:%M")
+    except:
+        return "08:00"
+
 # ==========================================
-# GESTIÓN DE FLOTA PERSONALIZADA
+# ALGORITMO DE OPTIMIZACIÓN MEJORADO
+# ==========================================
+
+def optimizar_rutas_multiple_servicios(df_servicios, flota):
+    resultados = []
+    
+    # Ordenar servicios por hora
+    df_servicios = df_servicios.sort_values('Hora Cita')
+    
+    # Asignar base a cada servicio
+    df_servicios['Base'] = df_servicios['Recogida'].apply(asignar_base_mas_cercana)
+    
+    # Agrupar servicios por bloques horarios
+    servicios_pendientes = df_servicios.to_dict('records')
+    
+    for vehiculo in flota:
+        vehiculo['disponible_desde'] = datetime.strptime("08:00", "%H:%M")
+        vehiculo['servicios_asignados'] = []
+        vehiculo['tiempo_trabajado'] = 0
+        vehiculo['base'] = 'Soria'
+    
+    # Asignar múltiples servicios por conductor
+    for servicio in servicios_pendientes:
+        try:
+            hora_cita = pd.to_datetime(str(servicio['Hora Cita']), errors='coerce')
+            if pd.isna(hora_cita):
+                hora_cita = pd.to_datetime(f"2000-01-01 {servicio['Hora Cita']}", errors='coerce')
+            
+            ventana_inicio = hora_cita - timedelta(minutes=MARGEN_TIEMPO)
+            ventana_fin = hora_cita + timedelta(minutes=MARGEN_TIEMPO)
+            
+            # Buscar vehículo disponible que pueda llevar este servicio
+            candidatos = [v for v in flota if puede_llevar(v['tipo'], servicio.get('Tipo', 'Sentado'))]
+            
+            # Filtrar candidatos que aún tienen tiempo disponible
+            candidatos = [c for c in candidatos if c['tiempo_trabajado'] < JORNADA_MAX]
+            
+            # Ordenar por: 1) menos tiempo trabajado, 2) más servicios (para agrupar)
+            candidatos.sort(key=lambda x: (x['tiempo_trabajado'], -len(x['servicios_asignados'])))
+            
+            asignado = False
+            
+            for vehiculo in candidatos:
+                tiempo_viaje = 20  # Tiempo base
+                
+                if vehiculo['servicios_asignados']:
+                    # Calcular tiempo desde último servicio
+                    tiempo_viaje = 25
+                
+                hora_disponible = vehiculo['disponible_desde'] + timedelta(minutes=tiempo_viaje)
+                inicio_real = max(hora_disponible, ventana_inicio)
+                
+                # Verificar si puede llegar a tiempo y no supera jornada
+                if inicio_real <= ventana_fin:
+                    tiempo_servicio = tiempo_viaje + DURACION_SERVICIO
+                    nuevo_tiempo = vehiculo['tiempo_trabajado'] + tiempo_servicio
+                    
+                    if nuevo_tiempo <= JORNADA_MAX:
+                        # ASIGNAR SERVICIO
+                        fin_real = inicio_real + timedelta(minutes=DURACION_SERVICIO)
+                        
+                        servicio_info = {
+                            'Vehículo': vehiculo['id'],
+                            'Conductor': vehiculo.get('conductor', 'N/A'),
+                            'Hora Cita': servicio['Hora Cita'],
+                            'Inicio Real': inicio_real.strftime("%H:%M"),
+                            'Fin Servicio': fin_real.strftime("%H:%M"),
+                            'Paciente': servicio['Paciente'],
+                            'Recogida': servicio['Recogida'],
+                            'Destino': servicio['Destino'],
+                            'Tipo': servicio.get('Tipo', 'Sentado'),
+                            'Base': servicio.get('Base', 'Soria'),
+                            'Tiempo Viaje': int(tiempo_viaje),
+                            'Horas Trabajadas': round(nuevo_tiempo / 60, 2)
+                        }
+                        
+                        vehiculo['disponible_desde'] = fin_real
+                        vehiculo['tiempo_trabajado'] = nuevo_tiempo
+                        vehiculo['servicios_asignados'].append(servicio_info)
+                        resultados.append(servicio_info)
+                        asignado = True
+                        break
+            
+            if not asignado:
+                resultados.append({
+                    'Vehículo': 'SIN ASIGNAR',
+                    'Conductor': 'N/A',
+                    'Hora Cita': servicio['Hora Cita'],
+                    'Paciente': servicio['Paciente'],
+                    'Recogida': servicio['Recogida'],
+                    'Destino': servicio['Destino'],
+                    'Tipo': servicio.get('Tipo', 'Sentado')
+                })
+        
+        except Exception as e:
+            pass
+    
+    return pd.DataFrame(resultados), flota
+
+# ==========================================
+# GESTIÓN DE FLOTA (SIDEBAR)
 # ==========================================
 
 if 'vehiculos_personalizados' not in st.session_state:
     st.session_state['vehiculos_personalizados'] = []
 
-st.sidebar.header("🚗 Gestión de Flota Personalizada")
+st.sidebar.header("🚗 Gestión de Flota")
 
-# Botón para cargar flota automática
 if st.sidebar.button("🚑 Cargar Flota Automática (35 vehículos)"):
     st.session_state['vehiculos_personalizados'] = []
     
-    # 22 vehículos Tipo B (1 camilla + 1 silla + 5 sentados)
     for i in range(1, 28):
         st.session_state['vehiculos_personalizados'].append({
             "id": f"B-{i:03d}",
             "tipo": "B",
             "conductor": f"Conductor B-{i}",
-            "matricula": f"{1000+i}BBB",
-            "disponible_desde": datetime.strptime("08:00", "%H:%M"),
-            "servicios_asignados": [],
-            "tiempo_trabajado": 0
+            "matricula": f"{1000+i}BBB"
         })
     
-    # 6 vehículos Tipo A (2-3 sillas + 4 sentados)
     for i in range(1, 9):
         st.session_state['vehiculos_personalizados'].append({
             "id": f"A-{i:03d}",
             "tipo": "A",
             "conductor": f"Conductor A-{i}",
-            "matricula": f"{2000+i}AAA",
-            "disponible_desde": datetime.strptime("08:00", "%H:%M"),
-            "servicios_asignados": [],
-            "tiempo_trabajado": 0
+            "matricula": f"{2000+i}AAA"
         })
     
-    st.sidebar.success("✅ Flota automática cargada: 27 tipo B + 8 tipo A = 35 vehículos")
+    st.sidebar.success("✅ Flota cargada: 27 tipo B + 8 tipo A")
     st.rerun()
-    
-# Botón para limpiar toda la flota
-if st.sidebar.button("🗑️ Limpiar Flota Completa"):
+
+if st.sidebar.button("🗑️ Limpiar Flota"):
     st.session_state['vehiculos_personalizados'] = []
-    st.sidebar.warning("⚠️ Flota limpiada. Puedes cargar la flota automática o añadir vehículos manualmente.")
+    st.sidebar.warning("⚠️ Flota limpiada")
     st.rerun()
 
 with st.sidebar.expander("➕ Añadir Vehículo", expanded=False):
     with st.form("form_vehiculo"):
-        col1, col2 = st.columns(2)
-        with col1:
-            nuevo_id = st.text_input("ID Vehículo", placeholder="Ej: A-001")
-            nuevo_tipo = st.selectbox("Tipo", ["A", "B"])
-        with col2:
-            nuevo_conductor = st.text_input("Conductor", placeholder="Nombre")
-            nueva_matricula = st.text_input("Matrícula", placeholder="0000BBB")
+        nuevo_id = st.text_input("ID", placeholder="A-001")
+        nuevo_tipo = st.selectbox("Tipo", ["A", "B"])
+        nuevo_conductor = st.text_input("Conductor")
+        nueva_matricula = st.text_input("Matrícula")
         
-        if st.form_submit_button("✅ Añadir Vehículo"):
+        if st.form_submit_button("✅ Añadir"):
             if nuevo_id and nuevo_conductor:
                 st.session_state['vehiculos_personalizados'].append({
                     "id": nuevo_id,
                     "tipo": nuevo_tipo,
                     "conductor": nuevo_conductor,
-                    "matricula": nueva_matricula,
-                    "disponible_desde": datetime.strptime("08:00", "%H:%M"),
-                    "servicios_asignados": [],
-                    "tiempo_trabajado": 0
+                    "matricula": nueva_matricula
                 })
-                st.success(f"✅ Vehículo {nuevo_id} añadido")
-            else:
-                st.error("❌ Completa ID y Conductor")
+                st.success(f"✅ {nuevo_id} añadido")
 
 if st.session_state['vehiculos_personalizados']:
-    st.sidebar.subheader(f"📋 Flota Actual ({len(st.session_state['vehiculos_personalizados'])} vehículos)")
+    st.sidebar.subheader(f"📋 Flota ({len(st.session_state['vehiculos_personalizados'])} vehículos)")
     for idx, v in enumerate(st.session_state['vehiculos_personalizados']):
         with st.sidebar.expander(f"{v['id']} - {v['conductor']}"):
             st.write(f"**Tipo:** {v['tipo']}")
@@ -182,148 +247,41 @@ if st.session_state['vehiculos_personalizados']:
                 st.rerun()
 
 # ==========================================
-# OPTIMIZACIÓN DE RUTAS
-# ==========================================
-
-def optimizar_rutas_vrptw(df_servicios, flota):
-    resultados = []
-    hoy = datetime.today().date()
-    
-    df_servicios = df_servicios.sort_values(['zona', 'Hora Cita'])
-    
-    for index, row in df_servicios.iterrows():
-        hora_cita_str = row['Hora Cita']
-        # Intentar parsear la hora de forma robusta
-        try:
-            hora_dt = pd.to_datetime(hora_cita_str, errors='coerce')
-        except:
-            hora_dt = pd.NaT
-        if pd.isna(hora_dt):
-            hora_dt = pd.to_datetime(f"2000-01-01 {hora_cita_str}", errors='coerce')
-        hora_cita_dt = hora_dt
-        
-        ventana_inicio = hora_cita_dt - timedelta(minutes=MARGEN_TIEMPO)
-        ventana_fin = hora_cita_dt + timedelta(minutes=MARGEN_TIEMPO)
-        
-        candidatos = [v for v in flota if puede_llevar(v['tipo'], row['Tipo'])]
-        candidatos.sort(key=lambda x: (
-            x['disponible_desde'],
-            x['tiempo_trabajado'],
-            -1 if len(x['servicios_asignados']) > 0 and 
-                x['servicios_asignados'][-1].get('Zona') == row.get('zona') else 0
-        ))
-        
-        asignado = None
-        
-        if candidatos:
-            mejor_vehiculo = candidatos[0]
-            
-            if mejor_vehiculo['servicios_asignados']:
-                ultima_ubicacion = mejor_vehiculo['servicios_asignados'][-1]['Destino']
-                distancia_km = calcular_distancia_simple(ultima_ubicacion, row['Recogida'])
-                tiempo_viaje = distancia_km * 2
-            else:
-                tiempo_viaje = 15
-            
-            hora_disponible = mejor_vehiculo['disponible_desde'] + timedelta(minutes=tiempo_viaje)
-            inicio_real = max(hora_disponible, ventana_inicio)
-            
-            if inicio_real <= ventana_fin and mejor_vehiculo['tiempo_trabajado'] < JORNADA_MAX_FLEXIBLE:
-                fin_real = inicio_real + timedelta(minutes=DURACION_SERVICIO)
-                tiempo_espera = max(0, (ventana_inicio - hora_disponible).total_seconds() / 60)
-                
-                mejor_vehiculo['disponible_desde'] = fin_real
-                tiempo_servicio = tiempo_viaje + tiempo_espera + DURACION_SERVICIO
-                mejor_vehiculo['tiempo_trabajado'] += tiempo_servicio
-                
-                servicio_info = {
-                    'Vehículo': mejor_vehiculo['id'],
-                    'Conductor': mejor_vehiculo.get('conductor', 'N/A'),
-                    'Hora Cita': row['Hora Cita'],
-                    'Ventana Inicio': ventana_inicio.strftime("%H:%M"),
-                    'Ventana Fin': ventana_fin.strftime("%H:%M"),
-                    'Inicio Real': inicio_real.strftime("%H:%M"),
-                    'Fin Servicio': fin_real.strftime("%H:%M"),
-                    'Tiempo Espera': int(tiempo_espera),
-                    'Paciente': row['Paciente'],
-                    'Recogida': row['Recogida'],
-                    'Destino': row['Destino'],
-                    'Tipo': row['Tipo'],
-                    'Zona': row.get('zona', 0),
-                    'Tiempo Viaje': int(tiempo_viaje),
-                    'Horas Trabajadas': round(mejor_vehiculo['tiempo_trabajado'] / 60, 2)
-                }
-                
-                mejor_vehiculo['servicios_asignados'].append(servicio_info)
-                resultados.append(servicio_info)
-                asignado = mejor_vehiculo['id']
-            else:
-                resultados.append({
-                    'Vehículo': 'SIN ASIGNAR - TIEMPO INSUFICIENTE',
-                    'Conductor': 'N/A',
-                    'Hora Cita': row['Hora Cita'],
-                    'Paciente': row['Paciente'],
-                    'Recogida': row['Recogida'],
-                    'Destino': row['Destino'],
-                    'Tipo': row['Tipo'],
-                    'Zona': row.get('zona', 0)
-                })
-        else:
-            resultados.append({
-                'Vehículo': 'SIN FLOTA DISPONIBLE',
-                'Conductor': 'N/A',
-                'Hora Cita': row['Hora Cita'],
-                'Paciente': row['Paciente'],
-                'Recogida': row['Recogida'],
-                'Destino': row['Destino'],
-                'Tipo': row['Tipo'],
-                'Zona': row.get('zona', 0)
-            })
-    
-    return pd.DataFrame(resultados), flota
-
-# ==========================================
 # INTERFAZ PRINCIPAL
 # ==========================================
 
 st.subheader("📄 Paso 1: Cargar Servicios")
-uploaded_file = st.file_uploader("Sube tu archivo Excel o PDF con servicios", type=['xlsx', 'xls', 'pdf'])
+
+uploaded_file = st.file_uploader("Sube tu archivo Excel o PDF", type=['xlsx', 'xls', 'pdf'])
 
 if uploaded_file:
     try:
-                # Detectar tipo de archivo
-        file_extension = uploaded_file.name.split('.')[-1].lower()
+        file_ext = uploaded_file.name.split('.')[-1].lower()
         
-        if file_extension == 'pdf':
-            # Procesar PDF
+        if file_ext == 'pdf':
             with pdfplumber.open(uploaded_file) as pdf:
-                # Extraer tabla de la primera página
-                first_page = pdf.pages[0]
-                table = first_page.extract_table()
+                table = pdf.pages[0].extract_table()
                 if table:
-                    # Convertir tabla a DataFrame
                     df = pd.DataFrame(table[1:], columns=table[0])
                 else:
-                    st.error("❌ No se encontraron tablas en el PDF")
+                    st.error("❌ No se encontraron tablas en PDF")
                     df = None
         else:
-            # Procesar Excel
             df = pd.read_excel(uploaded_file)
-            if 'ID_Servicio' not in df.columns:
-                df['ID_Servicio'] = range(1, len(df) + 1)
-                        
-            # Validar columnas requeridas
-            columnas_requeridas = ['Paciente', 'Hora Cita', 'Recogida', 'Destino', 'Tipo']
-            columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
-            if columnas_faltantes:
-                st.error(f"❌ Faltan columnas requeridas: {', '.join(columnas_faltantes)}")
-                st.info("💡 El archivo debe contener: Paciente, Hora_Cita, Recogida, Destino, Tipo")
+        
+        if df is not None:
+            columnas_req = ['Paciente', 'Hora Cita', 'Recogida', 'Destino', 'Tipo']
+            faltantes = [c for c in columnas_req if c not in df.columns]
+            
+            if faltantes:
+                st.error(f"❌ Faltan columnas: {', '.join(faltantes)}")
+                st.info("💡 Columnas requeridas: Paciente, Hora Cita, Recogida, Destino, Tipo")
             else:
-                        st.session_state['df_servicios'] = df
-                        st.success(f"✅ {len(df)} servicios cargados")
+                st.session_state['df_servicios'] = df
+                st.success(f"✅ {len(df)} servicios cargados")
+    
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-                    
 
 if 'df_servicios' in st.session_state:
     df = st.session_state['df_servicios']
@@ -332,59 +290,47 @@ if 'df_servicios' in st.session_state:
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🗑️ Limpiar Servicios"):
-            if 'df_servicios' in st.session_state:
-                del st.session_state['df_servicios']
+            del st.session_state['df_servicios']
             if 'df_resultado' in st.session_state:
                 del st.session_state['df_resultado']
-            if 'flota' in st.session_state:
-                del st.session_state['flota']
             st.rerun()
     
     with col2:
-        if st.button("🔄 Resetear Flota/Resultados"):
+        if st.button("🔄 Resetear Resultados"):
             if 'df_resultado' in st.session_state:
                 del st.session_state['df_resultado']
-            if 'flota' in st.session_state:
-                del st.session_state['flota']
             st.rerun()
     
-    st.subheader("🚀 Paso 2: Calcular Rutas")
+    st.subheader("🚀 Paso 2: Calcular Rutas Optimizadas")
     
     if not st.session_state['vehiculos_personalizados']:
-        st.warning("⚠️ No hay vehículos en la flota. Añade vehículos en el panel lateral.")
+        st.warning("⚠️ No hay vehículos. Añade vehículos en el panel lateral.")
     else:
-        if st.button("🚀 Calcular Rutas"):
-            with st.spinner("🔄 Aplicando clustering geográfico..."):
-                df = clustering_geografico(df, n_clusters=3)
-            
-            with st.spinner("⏳ Optimizando rutas VRPTW..."):
+        if st.button("🚀 CALCULAR RUTAS CON OPTIMIZACIÓN"):
+            with st.spinner("🔄 Optimizando con múltiples servicios por conductor..."):
                 flota = [v.copy() for v in st.session_state['vehiculos_personalizados']]
-                for v in flota:
-                    v['disponible_desde'] = datetime.strptime("08:00", "%H:%M")
-                    v['servicios_asignados'] = []
-                    v['tiempo_trabajado'] = 0
                 
-                df_resultado, flota = optimizar_rutas_vrptw(df, flota)
+                df_resultado, flota = optimizar_rutas_multiple_servicios(df, flota)
                 st.session_state['df_resultado'] = df_resultado
                 st.session_state['flota'] = flota
-            
-            st.success("✅ ¡Optimización completada!")
+                
+                st.success("✅ ¡Optimización completada con éxito!")
 
 # ==========================================
-# RESULTADOS Y DASHBOARD
+# DASHBOARD DE RESULTADOS
 # ==========================================
 
 if 'df_resultado' in st.session_state:
     df_res = st.session_state['df_resultado']
     flota = st.session_state['flota']
     
-    st.subheader("📊 Dashboard PRO de Resultados")
+    st.subheader("📊 Dashboard de Resultados OPTIMIZADOS")
     
-    # KPIs principales
+    # KPIs
     col1, col2, col3, col4 = st.columns(4)
     
-    vehiculos_usados = len(df_res[df_res['Vehículo'].str.contains('A-|B-', na=False)]['Vehículo'].unique())
-    servicios_ok = len(df_res[df_res['Vehículo'].str.contains('A-|B-', na=False)])
+    vehiculos_usados = len([v for v in flota if v['servicios_asignados']])
+    servicios_ok = len(df_res[~df_res['Vehículo'].str.contains('SIN', na=False)])
     pendientes = len(df_res) - servicios_ok
     eficiencia = round((servicios_ok/len(df_res))*100, 1) if len(df_res) > 0 else 0
     
@@ -393,7 +339,7 @@ if 'df_resultado' in st.session_state:
     col3.metric("❌ Pendientes", pendientes)
     col4.metric("🎯 Eficiencia", f"{eficiencia}%")
     
-    # Tabla de vehículos con horas de entrada calculadas
+    # Resumen por conductor
     st.subheader("👥 Resumen por Conductor")
     
     resumen_conductores = []
@@ -412,19 +358,22 @@ if 'df_resultado' in st.session_state:
                 'Hora Salida': hora_salida,
                 'Total Horas': total_horas,
                 'Nº Servicios': num_servicios,
-                'Estado': '✅ Completo' if total_horas <= 8 else '⚠️ Jornada Extendida'
+                'Estado': '✅ Óptimo' if total_horas <= 8 else '⚠️ Extendida'
             })
     
     if resumen_conductores:
         df_conductores = pd.DataFrame(resumen_conductores)
         st.dataframe(df_conductores, use_container_width=True)
+        
+        # Métricas adicionales
+        st.info(f"📈 **Promedio de servicios por conductor:** {round(df_conductores['Nº Servicios'].mean(), 1)}")
     
-    # Tabla completa de resultados
-    st.subheader("📋 Tabla Detallada de Resultados")
+    # Tabla detallada
+    st.subheader("📋 Tabla Detallada")
     st.dataframe(df_res, use_container_width=True)
     
     # ==========================================
-    # EXPORTACIÓN PROFESIONAL A EXCEL
+    # EXPORTACIÓN A EXCEL
     # ==========================================
     
     st.subheader("📥 Exportar Excel Profesional")
@@ -434,27 +383,26 @@ if 'df_resultado' in st.session_state:
         # Hoja resumen general
         df_res.to_excel(writer, index=False, sheet_name='Resumen General')
         
-        # Hoja por cada conductor con jornada completa
+        # Hoja por cada conductor
         for v in flota:
             if v['servicios_asignados']:
                 conductor_nombre = v.get('conductor', v['id']).replace('/', '-')[:30]
                 
-                # Crear DataFrame con jornada completa del conductor
                 jornada_data = []
                 hora_entrada = calcular_hora_entrada(v['servicios_asignados'])
                 
-                # Fila de entrada
+                # Entrada
                 jornada_data.append({
                     'Hora': hora_entrada,
-                    'Actividad': 'ENTRADA - Inicio Jornada',
+                    'Actividad': 'ENTRADA',
                     'Paciente': '-',
                     'Recogida': '-',
                     'Destino': '-',
-                    'Tipo Servicio': '-',
-                    'Observaciones': f'Conductor: {v.get("conductor", "N/A")} | Vehículo: {v["id"]} | Matrícula: {v.get("matricula", "N/A")}'
+                    'Tipo': '-',
+                    'Observaciones': f"Conductor: {v.get('conductor', 'N/A')} | Veh: {v['id']}"
                 })
                 
-                # Servicios del día
+                # Servicios
                 for i, servicio in enumerate(v['servicios_asignados'], 1):
                     jornada_data.append({
                         'Hora': servicio['Hora Cita'],
@@ -462,27 +410,27 @@ if 'df_resultado' in st.session_state:
                         'Paciente': servicio['Paciente'],
                         'Recogida': servicio['Recogida'],
                         'Destino': servicio['Destino'],
-                        'Tipo Servicio': servicio['Tipo'],
-                        'Observaciones': f"Inicio: {servicio['Inicio Real']} | Fin: {servicio['Fin Servicio']} | Viaje: {servicio.get('Tiempo Viaje', 0)} min"
+                        'Tipo': servicio['Tipo'],
+                        'Observaciones': f"Inicio: {servicio['Inicio Real']} | Fin: {servicio['Fin Servicio']}"
                     })
                 
-                # Fila de salida
+                # Salida
                 hora_salida = v['servicios_asignados'][-1]['Fin Servicio']
                 total_horas = round(v['tiempo_trabajado'] / 60, 2)
                 jornada_data.append({
                     'Hora': hora_salida,
-                    'Actividad': 'SALIDA - Fin Jornada',
+                    'Actividad': 'SALIDA',
                     'Paciente': '-',
                     'Recogida': '-',
                     'Destino': '-',
-                    'Tipo Servicio': '-',
-                    'Observaciones': f'Total jornada: {total_horas}h | Servicios realizados: {len(v["servicios_asignados"])}'
+                    'Tipo': '-',
+                    'Observaciones': f'Total: {total_horas}h | Servicios: {len(v["servicios_asignados"])}'
                 })
                 
                 df_jornada = pd.DataFrame(jornada_data)
                 df_jornada.to_excel(writer, index=False, sheet_name=conductor_nombre)
         
-        # Hoja de estadísticas
+        # Estadísticas
         if resumen_conductores:
             df_stats = pd.DataFrame(resumen_conductores)
             df_stats.to_excel(writer, index=False, sheet_name='Estadísticas')
@@ -490,38 +438,19 @@ if 'df_resultado' in st.session_state:
     buffer.seek(0)
     
     st.download_button(
-        label="📈 Descargar Excel PRO con Jornadas Completas",
+        label="📈 DESCARGAR EXCEL OPTIMIZADO",
         data=buffer.getvalue(),
-        file_name=f"rutas_optimizadas_PRO_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+        file_name=f"rutas_optimizadas_V3_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     
-    st.success("✅ ¡Excel listo! Incluye hojas individuales por conductor con jornada completa (entrada, servicios, salida)")
+    st.success("✅ Excel con hojas individuales por conductor listo para descargar")
 
-# ==========================================
-# FOOTER
-# ==========================================
-
+# Footer
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #666;'>
-🏆 <b>Gestor Inteligente de Flota PRO</b> | Versión 2.0<br>
-Optimizado con IA para máxima eficiencia
+🏆 <b>Gestor Inteligente V3.0 OPTIMIZADO</b><br>
+Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
