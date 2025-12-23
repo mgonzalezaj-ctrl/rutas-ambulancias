@@ -489,12 +489,13 @@ if 'df_resultado' in st.session_state:
     st.success("✅ Excel con hojas individuales por conductor listo para descargar")
 
 # Footer
-st.markdown(""""---")
+st.markdown("""---""")
 st.markdown("""
 <div style='text-align: center; color: #666;'>
 <b>Gestor Inteligente V4.0 OPTIMIZADO</b><br>
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
