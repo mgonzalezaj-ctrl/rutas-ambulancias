@@ -27,7 +27,7 @@ st.markdown("""### Sistema con Jornada Objetivo y Cálculo Automát**Mejoras V4.
 DURACION_SERVICIO = 60
 MARGEN_TIEMPO = 30
 
-# Bases geográficas con coordenadas
+# Bases geográficico""")
 BASES = {
     'Soria': {'lat': 41.7665, 'lon': -2.4790},
     'Almazán': {'lat': 41.4856, 'lon': -2.5252},
@@ -495,6 +495,7 @@ st.markdown("""
 Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
