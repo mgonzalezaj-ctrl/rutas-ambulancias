@@ -20,13 +20,18 @@ st.set_page_config(
     page_title="🏆 Gestor Pro de Flota",
     layout="wide",
     initial_sidebar_state="expanded"
-)
+    )
 
-st.title("🏆 Gestor Inteligente de Flota V4.0 - OPTIMIZADO")st.markdown("""### Sistema con Múltiples Servicios por Conductor
-**Mejoras V4.0:**- 🎯 Múltiples servicios por conductor (hasta 10h)
-- 🎯 Parámetro jornada objetivo (7-10h)- 📊 Agrupación geográfica mejorada
+st.title("🏆 Gestor Inteligente de Flota V4.0 - OPTIMIZADO")
+st.markdown("""### Sistema con Jornada Objetivo y Cálculo Automát**Mejoras V4.0:**
+- 🎯 Parámetro jornada objetivo (7-10h)
 - 🌍 Excepción para servicios fuera de provincia
 - 🧮 Modo: Calcular ambulancias necesarias
+- 🚗 4 Bases: Soria, Almazán, Burgo de Osma, Ólvega
+- 📊 Múltiples servicios por conductor
+---
+""")
+
 - 🚗 4 Bases: Soria, Almazán, Burgo de Osma, Ólvega
 - 📊 Múltiples servicios por conductor
 ---
@@ -505,4 +510,5 @@ st.markdown("""
 Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
+
 
