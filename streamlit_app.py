@@ -1,6 +1,5 @@
 # ==========================================
-# GESTOR INTELIGENTE DE FLOTA DE AMBULANCIAS PRO V3.0
-# Versión Optimizada - Múltiples Servicios por Conductor
+# GESTOR INTELIGENTE DE FLOTA DE AMBULANCIAS PRO V4.0# Versión Optimizada - Múltiples Servicios por Conductor
 # ==========================================
 
 import streamlit as st
@@ -23,13 +22,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("🏆 Gestor Inteligente de Flota V3.0 - OPTIMIZADO")
-st.markdown("""### Sistema con Múltiples Servicios por Conductor
-**Mejoras V3.0:**
+st.title("🏆 Gestor Inteligente de Flota V4.0 - OPTIMIZADO")st.markdown("""### Sistema con Múltiples Servicios por Conductor
+**Mejoras V4.0:**- 🎯 Múltiples servicios por conductor (hasta 10h)
+- 🎯 Parámetro jornada objetivo (7-10h)- 📊 Agrupación geográfica mejorada
+- 🌍 Excepción para servicios fuera de provincia
+- 🧮 Modo: Calcular ambulancias necesarias
 - 🚗 4 Bases: Soria, Almazán, Burgo de Osma, Ólvega
-- 🎯 Múltiples servicios por conductor (hasta 10h)
-- 🧠 Optimización inteligente de vehículos
-- 📊 Agrupación geográfica mejorada
+- 📊 Múltiples servicios por conductor
 ---
 """)
 
@@ -189,6 +188,34 @@ def optimizar_rutas_multiple_servicios(df_servicios, flota):
 
 if 'vehiculos_personalizados' not in st.session_state:
     st.session_state['vehiculos_personalizados'] = []
+
+# Parámetros de Jornada
+st.sidebar.subheader("⚙️ Parámetros de Jornada")
+jornada_objetivo = st.sidebar.slider(
+        "Jornada Objetivo (horas)",
+        min_value=7.0,
+        max_value=10.0,
+        value=8.0,
+        step=0.5,
+        help="Jornada objetivo para servicios normales"
+    )
+
+jornada_maxima_fuera = st.sidebar.slider(
+        "Jornada Máxima Fuera de Provincia (horas)",
+        min_value=8.0,
+        max_value=12.0,
+        value=10.0,
+        step=0.5,
+        help="Jornada máxima para servicios fuera de provincia"
+    )
+
+calcular_necesarias = st.sidebar.checkbox(
+        "Calcular ambulancias necesarias",
+        value=True,
+        help="Detecta y usa solo las ambulancias necesarias"
+    )
+
+
 
 st.sidebar.header("🚗 Gestión de Flota")
 
@@ -478,3 +505,4 @@ st.markdown("""
 Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
+
