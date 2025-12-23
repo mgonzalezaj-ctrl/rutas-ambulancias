@@ -28,6 +28,8 @@ st.title("🏆 Gestor Inteligente de Flota V4.0 - OPTIMIZADO")
 # Configuración
 
 DURACION_SERVICIO = 60
+MARGEN_TIEMPO = 30  # Margen de tiempo para llegar a la cita (minutos)
+JORNADA_MAX = 600  # Jornada máxima en minutos (10 horas)
 
 BASES = {
     'Soria': {'lat': 41.7665, 'lon': -2.4790},
@@ -495,6 +497,7 @@ st.markdown("""
 <b>Gestor Inteligente V4.0 OPTIMIZADO</b><br>
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
