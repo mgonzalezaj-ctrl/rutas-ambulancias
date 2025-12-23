@@ -24,11 +24,7 @@ st.set_page_config(
 
 st.title("🏆 Gestor Inteligente de Flota V4.0 - OPTIMIZADO")
 st.markdown("""### Sistema con Jornada Objetivo y Cálculo Automát**Mejoras V4.0:**
-- 🎯 Parámetro jornada objetivo (7-10h)
-- 🌍 Excepción para servicios fuera de provincia
-- 🧮 Modo: Calcular ambulancias necesarias
 DURACION_SERVICIO = 60
-JORNADA_MAX = 10 * 60
 MARGEN_TIEMPO = 30
 
 # Bases geográficas con coordenadas
@@ -499,5 +495,6 @@ st.markdown("""
 Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
+
 
 
