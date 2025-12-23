@@ -27,17 +27,6 @@ st.markdown("""### Sistema con Jornada Objetivo y Cálculo Automát**Mejoras V4.
 - 🎯 Parámetro jornada objetivo (7-10h)
 - 🌍 Excepción para servicios fuera de provincia
 - 🧮 Modo: Calcular ambulancias necesarias
-- 🚗 4 Bases: Soria, Almazán, Burgo de Osma, Ólvega
-- 📊 Múltiples servicios por conductor
----
-""")
-
-- 🚗 4 Bases: Soria, Almazán, Burgo de Osma, Ólvega
-- 📊 Múltiples servicios por conductor
----
-""")
-
-# Configuración
 DURACION_SERVICIO = 60
 JORNADA_MAX = 10 * 60
 MARGEN_TIEMPO = 30
@@ -510,5 +499,6 @@ st.markdown("""
 Con múltiples servicios por conductor y 4 bases geográficas
 </div>
 """, unsafe_allow_html=True)
+
 
 
