@@ -492,8 +492,9 @@ st.markdown(""""---")
 st.markdown("""
 <div style='text-align: center; color: #666;'>
 <b>Gestor Inteligente V4.0 OPTIMIZADO</b><br>
-st.markdown("---")</div>
+</div>
 """, unsafe_allow_html=True)
+
 
 
 
