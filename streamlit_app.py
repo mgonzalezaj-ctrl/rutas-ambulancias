@@ -492,9 +492,9 @@ st.markdown(""""---")
 st.markdown("""
 <div style='text-align: center; color: #666;'>
 <b>Gestor Inteligente V4.0 OPTIMIZADO</b><br>
-Con múltiples servicios por conductor y 4 bases geográficas
-</div>
+st.markdown("---")</div>
 """, unsafe_allow_html=True)
+
 
 
 
