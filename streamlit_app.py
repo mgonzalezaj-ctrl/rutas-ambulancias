@@ -393,6 +393,10 @@ if 'df_resultado' in st.session_state:
             hora_salida = v['servicios_asignados'][-1]['Fin Servicio']
             total_horas = round(v['tiempo_trabajado'] / 60, 2)
             num_servicios = len(v['servicios_asignados'])
+                        
+            # Calcular horas de espera y viaje para jornada
+            total_viaje = sum([s.get('Tiempo Viaje', 0) for s in v['servicios_asignados']]) / 60  # Convertir a horas
+            jornada_horas = 8 - total_viaje  # Jornada = 8h - tiempo_viaje
             
             resumen_conductores.append({
                 'Vehículo': v['id'],
@@ -402,6 +406,7 @@ if 'df_resultado' in st.session_state:
                 'Hora Salida': hora_salida,
                 'Total Horas': total_horas,
                 'Nº Servicios': num_servicios,
+                                'Jornada (h)': round(jornada_horas, 2),
                 'Estado': '✅ Óptimo' if total_horas <= 8 else '⚠️ Extendida'
             })
     
@@ -497,6 +502,7 @@ st.markdown("""
 <b>Gestor Inteligente V4.0 OPTIMIZADO</b><br>
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
