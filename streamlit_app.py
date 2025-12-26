@@ -503,6 +503,17 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Créditos
+st.markdown("""---""")
+st.markdown(
+    '<div style="text-align: center; color: #666; padding: 20px;">'
+    '<p style="margin: 0;">Desarrollado por <strong>Manuel González Arjona</strong></p>'
+    '<p style="margin: 5px 0 0 0; font-size: 0.9em;">© 2025 - Gestor Inteligente de Flota V4.0</p>'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+
 
 
 
